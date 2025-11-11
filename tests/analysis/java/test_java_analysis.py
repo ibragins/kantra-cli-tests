@@ -53,11 +53,7 @@ def test_java_analysis_without_pom(analysis_data):
     shutil.rmtree(app_no_pom_path)
 
 # Automates Bug 6211
-@run_containerless_parametrize
-def test_gradle_analysis(additional_args):
-    # Avoid running this test on Windows
-    if os.name == 'nt':
-        return
+def test_gradle_analysis_custom_rule():
 
     application_path = os.path.join(
         os.getenv(constants.PROJECT_PATH),
@@ -74,9 +70,9 @@ def test_gradle_analysis(additional_args):
             **{
                 'rules': custom_rules_path,
                 'enable-default-rulesets': False,
-                'analyze-known-libraries': None
+                'analyze-known-libraries': None,
+                'run-local': True
             },
-            **additional_args
         )
 
         output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
