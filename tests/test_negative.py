@@ -53,3 +53,4 @@ def test_analysis_wrong_custom_rule(analysis_data, additional_args):
     assert process.returncode != 0
 
     assert 'failed to stat rules at path' in process.stderr
+
