@@ -8,7 +8,7 @@ import pytest
 
 from utils import constants
 from utils.command import build_analysis_command
-from utils.common import run_containerless_parametrize, verify_triggered_rules
+from utils.common import run_containerless_parametrize, verify_triggered_rules, extract_zip_to_temp_dir
 from utils.manage_maven_credentials import manage_credentials_in_maven_xml
 from utils.report import assert_story_points_from_report_file, get_json_from_report_output_js_file
 
@@ -51,6 +51,40 @@ def test_java_analysis_without_pom(analysis_data):
 
     assert_story_points_from_report_file()
     shutil.rmtree(app_no_pom_path)
+
+# Automates Bug 6211
+@run_containerless_parametrize
+def test_gradle_analysis(additional_args):
+    # Avoid running this test on Windows
+    if os.name == 'nt':
+        return
+
+    application_path = os.path.join(
+        os.getenv(constants.PROJECT_PATH),
+        'data/applications',
+        'jmh-gradle-example.zip'
+    )
+    custom_rules_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data/yaml/serializable-gradle-rule.yaml')
+
+    with extract_zip_to_temp_dir(application_path) as tempdir:
+        command = build_analysis_command(
+            tempdir,
+            "",
+            "",
+            **{
+                'rules': custom_rules_path,
+                'enable-default-rulesets': False,
+                'analyze-known-libraries': None
+            },
+            **additional_args
+        )
+
+        output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+
+        assert 'Static report created' in output
+        assert_story_points_from_report_file()
+        report_data = get_json_from_report_output_js_file()
+        verify_triggered_rules(report_data, ['serializable-test-rule-jmh-gradle'])
 
 def test_dependency_rule_analysis(analysis_data):
     application_data = analysis_data['tackle-testapp-project']
