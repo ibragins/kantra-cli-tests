@@ -44,7 +44,7 @@ def build_analysis_command(binary_name, sources, targets, is_bulk=False, output_
     if not os.path.exists(binary_path):
         raise Exception("Input application `%s` does not exist" % binary_path)
 
-    command = kantra_path + ' analyze ' + run_type + ' --input ' + binary_path + ' --output ' + report_path
+    command = kantra_path + ' analyze ' + run_type + ' --log-level=500 --input ' + binary_path + ' --output ' + report_path
 
     if sources:
         for source in sources:
