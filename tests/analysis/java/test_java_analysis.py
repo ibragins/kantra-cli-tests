@@ -71,7 +71,7 @@ def test_gradle_analysis_custom_rule():
                 'rules': custom_rules_path,
                 'enable-default-rulesets': 'false',
                 'analyze-known-libraries': None,
-                'run-local': 'true'
+                'run-local': 'false'
             },
         )
 
