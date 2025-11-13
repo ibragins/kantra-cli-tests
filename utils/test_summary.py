@@ -16,8 +16,9 @@ from collections import defaultdict
 from tabulate import tabulate
 
 
-def print_summary(json_file='test-results/report.json'):
-    # Load pytest JSON report
+def print_summary(json_file="test-results/report.json"):
+    """Load pytest JSON report and print summarized test results per spec."""
+    # --- Load JSON report ---
     try:
         with open(json_file, "r") as f:
             data = json.load(f)
@@ -30,7 +31,7 @@ def print_summary(json_file='test-results/report.json'):
         print("No test data found in JSON report.")
         sys.exit(0)
 
-    # Group results by spec (file path)
+    # --- Group tests by spec file ---
     grouped = defaultdict(lambda: {"total": 0, "passed": 0, "failed": 0})
     for t in tests:
         nodeid = t.get("nodeid", "")
@@ -43,7 +44,7 @@ def print_summary(json_file='test-results/report.json'):
         elif outcome == "failed":
             grouped[spec_name]["failed"] += 1
 
-    # Prepare table rows
+    # --- Prepare rows for the table ---
     table_rows = []
     total_tests = total_passed = total_failed = 0
 
@@ -51,16 +52,14 @@ def print_summary(json_file='test-results/report.json'):
         total_tests += stats["total"]
         total_passed += stats["passed"]
         total_failed += stats["failed"]
-
-        row = [
+        table_rows.append([
             spec,
             stats["total"],
-            str(stats["passed"]),
-            str(stats["failed"]),
-        ]
-        table_rows.append(row)
+            stats["passed"],
+            stats["failed"]
+        ])
 
-    # Prepare summary row
+    # --- Add final summary row ---
     if total_failed == 0:
         summary_icon = "✓"
         summary_text = f"{total_passed}/{total_tests} tests passed"
@@ -68,36 +67,27 @@ def print_summary(json_file='test-results/report.json'):
         summary_icon = "✗"
         summary_text = f"{total_failed}/{total_tests} tests failed"
 
-    summary_row = [
+    table_rows.append([
         f"{summary_icon} {summary_text}",
         total_tests,
-        str(total_passed),
-        str(total_failed),
-    ]
-    table_rows.append(summary_row)
+        total_passed,
+        total_failed
+    ])
 
-    # Generate the table as text
+    # --- Print final formatted summary ---
+    print("\n" + "=" * 80)
+    print("TEST SUMMARY BY SPEC")
+    print("=" * 80 + "\n")
+
+    # Tabulate handles all table layout — no manual line edits needed
     table_str = tabulate(
         table_rows,
         headers=["Spec", "Tests", "Passing", "Failing"],
         tablefmt="fancy_grid"
     )
+    print(table_str)
 
-    # Remove duplicate line issue (clean merge of table)
-    table_lines = table_str.splitlines()
-    enhanced_lines = []
-    for i, line in enumerate(table_lines):
-        enhanced_lines.append(line)
-        if "├" in line and "┼" in line and i < len(table_lines) - 3:
-            enhanced_lines.append(line)
-
-    # Print final table
-    print("\n" + "=" * 80)
-    print("TEST SUMMARY BY SPEC")
-    print("=" * 80 + "\n")
-    print("\n".join(enhanced_lines))
-
-    # Exit with proper code
+    # Exit with failure code if any test failed
     sys.exit(0 if total_failed == 0 else 1)
 
 
