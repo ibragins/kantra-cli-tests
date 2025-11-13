@@ -1,181 +1,119 @@
-#!/usr/bin/env python3
 """
-Test Summary Utility
-
-This script reads pytest JSON report and displays test results in a tabular format.
-Useful for Jenkins and CI/CD pipelines to get a clear overview of test results.
-
-Usage:
-    python utils/test_summary.py [json_report_file]
-
-Example:
-    python utils/test_summary.py test-results/report.json
+Test Summary Utility (Spec-Level)
+Groups pytest JSON report results by spec (test file) and prints
+a clean summary table.
 """
 
 import json
 import sys
+from collections import defaultdict
 from tabulate import tabulate
-from pathlib import Path
 
+# ANSI color codes
+def color(text, color_code):
+    return f"\033[{color_code}m{text}\033[0m"
 
-def print_test_summary(json_file='test-results/report.json'):
-    """
-    Print test results summary in tabular format
+GREEN = "92"
+RED = "91"
 
-    Args:
-        json_file (str): Path to the pytest JSON report file
-    """
+def print_summary(json_file='test-results/report.json'):
+    # Load pytest JSON report
     try:
-        with open(json_file, 'r') as f:
+        with open(json_file, "r") as f:
             data = json.load(f)
-    except FileNotFoundError:
-        print(f"Error: JSON report file not found: {json_file}")
-        print(f"Make sure to run pytest with --json-report --json-report-file={json_file}")
-        sys.exit(1)
-    except json.JSONDecodeError:
-        print(f"Error: Invalid JSON in report file: {json_file}")
+    except Exception as e:
+        print(f"❌ Error reading report file: {e}")
         sys.exit(1)
 
-    # Extract summary information
-    summary = data.get('summary', {})
-    total = summary.get('total', 0)
-    passed = summary.get('passed', 0)
-    failed = summary.get('failed', 0)
-    skipped = summary.get('skipped', 0)
-    error = summary.get('error', 0)
+    tests = data.get("tests", [])
+    if not tests:
+        print("No test data found in JSON report.")
+        sys.exit(0)
 
-    tests = data.get('tests', [])
+    # Group results by spec (file path)
+    grouped = defaultdict(lambda: {"total": 0, "passed": 0, "failed": 0})
+    for t in tests:
+        nodeid = t.get("nodeid", "")
+        spec_name = nodeid.split("::")[0]
+        outcome = t.get("outcome", "").lower()
 
-    # Print failed test details first if any
-    failed_tests = [t for t in tests if t.get('outcome') == 'failed']
-    if failed_tests:
-        print("\n" + "="*80)
-        print("FAILED TEST DETAILS")
-        print("="*80 + "\n")
+        grouped[spec_name]["total"] += 1
+        if outcome == "passed":
+            grouped[spec_name]["passed"] += 1
+        elif outcome == "failed":
+            grouped[spec_name]["failed"] += 1
 
-        for test in failed_tests:
-            print(f"Test: {test.get('nodeid', 'Unknown')}")
-            print(f"Duration: {test.get('duration', 0):.2f}s")
+    # Prepare table rows
+    table_rows = []
+    total_tests = total_passed = total_failed = 0
 
-            # Print failure message if available
-            call = test.get('call', {})
-            longrepr = call.get('longrepr', '')
-            if longrepr:
-                print(f"Error:\n{longrepr}")
+    for spec, stats in sorted(grouped.items()):
+        total_tests += stats["total"]
+        total_passed += stats["passed"]
+        total_failed += stats["failed"]
 
-            print("-" * 80 + "\n")
+        row = [
+            spec,
+            stats["total"],
+            color(str(stats["passed"]), GREEN) if stats["passed"] else "0",
+            color(str(stats["failed"]), RED) if stats["failed"] else "0",
+        ]
+        table_rows.append(row)
 
-    # Print overall summary
-    print("\n" + "="*80)
-    print("TEST SUMMARY")
-    print("="*80)
+    # Prepare summary row
+    if total_failed == 0:
+        summary_icon = color("✓", GREEN)
+        summary_text = f"{total_passed}/{total_tests} tests passed"
+    else:
+        summary_icon = color("✗", RED)
+        summary_text = f"{total_failed}/{total_tests} tests failed"
 
-    summary_table = [
-        ['Total Tests', total],
-        ['Passed', passed],
-        ['Failed', failed],
-        ['Skipped', skipped],
-        ['Errors', error],
-        ['Success Rate', f"{(passed/total*100):.1f}%" if total > 0 else "N/A"]
+    summary_row = [
+        f"{summary_icon} {summary_text}",
+        total_tests,
+        color(str(total_passed), GREEN),
+        color(str(total_failed), RED),
     ]
+    table_rows.append(summary_row)
 
-    print(tabulate(summary_table, headers=['Metric', 'Count'], tablefmt='grid'))
+    # Generate the table as text
+    table_str = tabulate(
+        table_rows,
+        headers=["Spec", "Tests", "Passing", "Failing"],
+        tablefmt="fancy_grid"
+    )
 
-    # Print detailed test results
-    print("\n" + "="*80)
-    print("DETAILED TEST RESULTS")
-    print("="*80 + "\n")
+    table_lines = table_str.splitlines()
+    enhanced_lines = []
 
-    table_data = []
+    data_rows = table_rows[:-1]  # all rows except summary
+    line_idx = 0
 
-    for test in tests:
-        nodeid = test.get('nodeid', 'Unknown')
-        outcome = test.get('outcome', 'unknown').upper()
-        duration = test.get('duration', 0)
+    for row_idx, _ in enumerate(data_rows):
+        while line_idx < len(table_lines):
+            enhanced_lines.append(table_lines[line_idx])
+            if "├" in table_lines[line_idx] and "┼" in table_lines[line_idx]:
+                if row_idx < len(data_rows) - 1:
+                    enhanced_lines.append(table_lines[line_idx])
+                line_idx += 1
+                break
+            line_idx += 1
 
-        # Add status emoji for better visibility
-        status_icon = {
-            'PASSED': '✓',
-            'FAILED': '✗',
-            'SKIPPED': '⊝',
-            'ERROR': '⚠'
-        }.get(outcome, '?')
+    # Append remaining lines (summary row + bottom border)
+    while line_idx < len(table_lines):
+        enhanced_lines.append(table_lines[line_idx])
+        line_idx += 1
 
-        # Truncate long test names for better display
-        if len(nodeid) > 80:
-            nodeid = '...' + nodeid[-77:]
+    # Print final table
+    print("\n" + "=" * 80)
+    print("TEST SUMMARY BY SPEC")
+    print("=" * 80 + "\n")
+    print("\n".join(enhanced_lines))
 
-        table_data.append([
-            status_icon,
-            nodeid,
-            outcome,
-            f"{duration:.2f}s"
-        ])
-
-    if table_data:
-        print(tabulate(table_data, headers=['', 'Test Name', 'Status', 'Duration'], tablefmt='grid'))
-    else:
-        print("No test results found in the report.")
-
-    # Return exit code based on test results
-    return 0 if failed == 0 and error == 0 else 1
+    # Exit with proper code
+    sys.exit(0 if total_failed == 0 else 1)
 
 
-def print_test_summary_compact(json_file='test-results/report.json'):
-    """
-    Print a compact version of test results (one-line summary + table)
-
-    Args:
-        json_file (str): Path to the pytest JSON report file
-    """
-    try:
-        with open(json_file, 'r') as f:
-            data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"Error reading JSON report: {e}")
-        sys.exit(1)
-
-    summary = data.get('summary', {})
-    total = summary.get('total', 0)
-    passed = summary.get('passed', 0)
-    failed = summary.get('failed', 0)
-    error = summary.get('error', 0)
-
-    # One-line summary
-    print(f"\nTest Results: {passed}/{total} passed, {failed} failed")
-
-    # Compact table
-    table_data = []
-    for test in data.get('tests', []):
-        outcome = test.get('outcome', 'unknown').upper()
-        status_icon = '✓' if outcome == 'PASSED' else '✗' if outcome == 'FAILED' else '⊝'
-        table_data.append([
-            status_icon,
-            test.get('nodeid', 'Unknown'),
-            f"{test.get('duration', 0):.2f}s"
-        ])
-
-    print(tabulate(table_data, headers=['', 'Test', 'Time'], tablefmt='simple'))
-
-    return 0 if failed == 0 and error == 0 else 1
-
-
-if __name__ == '__main__':
-    # Default to looking for report in test-results directory
-    report_file = 'test-results/report.json'
-
-    # If compact mode is requested
-    compact_mode = '--compact' in sys.argv
-
-    # Allow custom report file path from command line
-    # Filter out --compact flag to find the actual file path
-    args = [arg for arg in sys.argv[1:] if arg != '--compact']
-    if args:
-        report_file = args[0]
-
-    if compact_mode:
-        exit_code = print_test_summary_compact(report_file)
-    else:
-        exit_code = print_test_summary(report_file)
-
-    sys.exit(exit_code)
+if __name__ == "__main__":
+    report = sys.argv[1] if len(sys.argv) > 1 else "test-results/report.json"
+    print_summary(report)
