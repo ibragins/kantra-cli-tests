@@ -1,7 +1,13 @@
 """
-Test Summary Utility (Spec-Level)
-Groups pytest JSON report results by spec (test file) and prints
-a clean summary table.
+    Test Summary Utility
+    This script reads pytest JSON report and displays test results in a tabular format.
+    Useful for Jenkins and CI/CD pipelines to get a clear overview of test results.
+
+    Usage:
+        python utils/test_summary.py [json_report_file]
+
+    Example:
+        python utils/test_summary.py test-results/report.json
 """
 
 import json
@@ -9,12 +15,6 @@ import sys
 from collections import defaultdict
 from tabulate import tabulate
 
-# ANSI color codes
-def color(text, color_code):
-    return f"\033[{color_code}m{text}\033[0m"
-
-GREEN = "92"
-RED = "91"
 
 def print_summary(json_file='test-results/report.json'):
     # Load pytest JSON report
@@ -55,24 +55,24 @@ def print_summary(json_file='test-results/report.json'):
         row = [
             spec,
             stats["total"],
-            color(str(stats["passed"]), GREEN) if stats["passed"] else "0",
-            color(str(stats["failed"]), RED) if stats["failed"] else "0",
+            str(stats["passed"]),
+            str(stats["failed"]),
         ]
         table_rows.append(row)
 
     # Prepare summary row
     if total_failed == 0:
-        summary_icon = color("✓", GREEN)
+        summary_icon = "✓"
         summary_text = f"{total_passed}/{total_tests} tests passed"
     else:
-        summary_icon = color("✗", RED)
+        summary_icon = "✗"
         summary_text = f"{total_failed}/{total_tests} tests failed"
 
     summary_row = [
         f"{summary_icon} {summary_text}",
         total_tests,
-        color(str(total_passed), GREEN),
-        color(str(total_failed), RED),
+        str(total_passed),
+        str(total_failed),
     ]
     table_rows.append(summary_row)
 
@@ -83,26 +83,13 @@ def print_summary(json_file='test-results/report.json'):
         tablefmt="fancy_grid"
     )
 
+    # Remove duplicate line issue (clean merge of table)
     table_lines = table_str.splitlines()
     enhanced_lines = []
-
-    data_rows = table_rows[:-1]  # all rows except summary
-    line_idx = 0
-
-    for row_idx, _ in enumerate(data_rows):
-        while line_idx < len(table_lines):
-            enhanced_lines.append(table_lines[line_idx])
-            if "├" in table_lines[line_idx] and "┼" in table_lines[line_idx]:
-                if row_idx < len(data_rows) - 1:
-                    enhanced_lines.append(table_lines[line_idx])
-                line_idx += 1
-                break
-            line_idx += 1
-
-    # Append remaining lines (summary row + bottom border)
-    while line_idx < len(table_lines):
-        enhanced_lines.append(table_lines[line_idx])
-        line_idx += 1
+    for i, line in enumerate(table_lines):
+        enhanced_lines.append(line)
+        if "├" in line and "┼" in line and i < len(table_lines) - 3:
+            enhanced_lines.append(line)
 
     # Print final table
     print("\n" + "=" * 80)
