@@ -1,8 +1,7 @@
-#!/usr/bin/env python3
 """
     Test Summary Utility
-    This script reads pytest JSON report and displays test results in a tabular format.
-    Useful for Jenkins and CI/CD pipelines to get a clear overview of test results.
+    Reads pytest JSON report and displays test results in a tabular format.
+    Designed for both local runs and CI/CD systems like Jenkins.
 
     Usage:
         python utils/test_summary.py [json_report_file]
@@ -57,10 +56,13 @@ def print_summary(json_file="test-results/report.json"):
         outcome = t.get("outcome", "").lower()
 
         grouped[spec_name]["total"] += 1
+
         if outcome == "passed":
             grouped[spec_name]["passed"] += 1
-        elif outcome == "failed":
+        elif outcome in {"failed", "error"}:
             grouped[spec_name]["failed"] += 1
+            if outcome == "error":
+                grouped[spec_name]["other"] += 1
         elif outcome == "skipped":
             grouped[spec_name]["skipped"] += 1
         else:
@@ -115,7 +117,7 @@ def print_summary(json_file="test-results/report.json"):
     )
     print(table_str)
 
-    # --- Exit with failure code if any test failed ---
+    # --- Exit with failure code if any test failed or errored ---
     sys.exit(0 if total_failed == 0 else 1)
 
 
