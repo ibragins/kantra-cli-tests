@@ -61,12 +61,10 @@ def print_summary(json_file="test-results/report.json"):
             grouped[spec_name]["passed"] += 1
         elif outcome in {"failed", "error"}:
             grouped[spec_name]["failed"] += 1
-            if outcome == "error":
-                grouped[spec_name]["other"] += 1
         elif outcome == "skipped":
             grouped[spec_name]["skipped"] += 1
         else:
-            grouped[spec_name]["other"] += 1  
+            grouped[spec_name]["other"] += 1 
 
     # --- Prepare rows for the table ---
     table_rows = []
