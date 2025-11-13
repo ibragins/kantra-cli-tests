@@ -24,7 +24,7 @@ def print_summary(json_file="test-results/report.json"):
             data = json.load(f)
     # Catching specific exceptions helps CI/CD logs surface the real issue.
     except (IOError, OSError, json.JSONDecodeError) as e:
-        print(f"❌ Error reading report file: {e}")
+        print(f"Error reading report file: {e}")
         sys.exit(1)
 
     tests = data.get("tests", [])
