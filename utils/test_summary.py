@@ -31,8 +31,15 @@ def print_summary(json_file="test-results/report.json"):
         print("No test data found in JSON report.")
         sys.exit(0)
 
-    # --- Group tests by spec file ---
-    grouped = defaultdict(lambda: {"total": 0, "passed": 0, "failed": 0})
+    # --- Group results by spec file ---
+    grouped = defaultdict(lambda: {
+        "total": 0,
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "other": 0
+    })
+
     for t in tests:
         nodeid = t.get("nodeid", "")
         spec_name = nodeid.split("::")[0]
@@ -43,20 +50,29 @@ def print_summary(json_file="test-results/report.json"):
             grouped[spec_name]["passed"] += 1
         elif outcome == "failed":
             grouped[spec_name]["failed"] += 1
+        elif outcome == "skipped":
+            grouped[spec_name]["skipped"] += 1
+        else:
+            grouped[spec_name]["other"] += 1  # e.g., xfailed, xpassed, error, etc.
 
     # --- Prepare rows for the table ---
     table_rows = []
-    total_tests = total_passed = total_failed = 0
+    total_tests = total_passed = total_failed = total_skipped = total_other = 0
 
     for spec, stats in sorted(grouped.items()):
         total_tests += stats["total"]
         total_passed += stats["passed"]
         total_failed += stats["failed"]
+        total_skipped += stats["skipped"]
+        total_other += stats["other"]
+
         table_rows.append([
             spec,
             stats["total"],
             stats["passed"],
-            stats["failed"]
+            stats["failed"],
+            stats["skipped"],
+            stats["other"]
         ])
 
     # --- Add final summary row ---
@@ -71,23 +87,24 @@ def print_summary(json_file="test-results/report.json"):
         f"{summary_icon} {summary_text}",
         total_tests,
         total_passed,
-        total_failed
+        total_failed,
+        total_skipped,
+        total_other
     ])
 
-    # --- Print final formatted summary ---
+    # --- Print formatted summary ---
     print("\n" + "=" * 80)
     print("TEST SUMMARY BY SPEC")
     print("=" * 80 + "\n")
 
-    # Tabulate handles all table layout — no manual line edits needed
     table_str = tabulate(
         table_rows,
-        headers=["Spec", "Tests", "Passing", "Failing"],
+        headers=["Spec", "Tests", "Passing", "Failing", "Skipped", "Other"],
         tablefmt="fancy_grid"
     )
     print(table_str)
 
-    # Exit with failure code if any test failed
+    # --- Exit with failure code if any test failed ---
     sys.exit(0 if total_failed == 0 else 1)
 
 
