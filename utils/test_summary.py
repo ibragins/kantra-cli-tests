@@ -16,11 +16,19 @@ import os
 from collections import defaultdict
 from tabulate import tabulate
 
+def debug(msg):
+    """Print debug message and flush stdout (important for Windows Jenkins)."""
+    print(f"[DEBUG] {msg}")
+    sys.stdout.flush()
 
 def print_summary(json_file="test-results/report.json"):
     """Load pytest JSON report and print summarized test results per spec."""
+    debug(f"Starting summary. JSON file path: {json_file}")
+    debug(f"Current working directory: {os.getcwd()}")
+    debug(f"Python executable: {sys.executable}")
     # --- Load JSON report ---
     try:
+        debug("Attempting to open JSON report file...")
         with open(json_file, "r") as f:
             data = json.load(f)
     except (IOError, OSError, json.JSONDecodeError) as e:
@@ -28,6 +36,7 @@ def print_summary(json_file="test-results/report.json"):
         sys.exit(1)
 
     tests = data.get("tests", [])
+    debug(f"Total test entries in JSON: {len(tests)}")
     if not tests:
         print("No test data found in JSON report.")
         sys.exit(0)
@@ -93,7 +102,7 @@ def print_summary(json_file="test-results/report.json"):
         total_skipped,
         total_other,
     ])
-
+    debug(f"Total tests: {total_tests}, Passed: {total_passed}, Failed: {total_failed}, Skipped: {total_skipped}, Other: {total_other}")
     # --- Print formatted summary ---
     print("\n" + "=" * 80)
     print("TEST SUMMARY BY SPEC")
@@ -111,5 +120,6 @@ def print_summary(json_file="test-results/report.json"):
 
 
 if __name__ == "__main__":
+    debug("test_summary.py invoked directly.")
     report = sys.argv[1] if len(sys.argv) > 1 else "test-results/report.json"
     print_summary(report)
