@@ -65,14 +65,12 @@ def print_summary(json_file="test-results/report.json"):
 
     # --- Add final summary row ---
     if total_failed == 0:
-        summary_label = "ALL PASSED"
         summary_status = f"{total_passed}/{total_tests} tests passed"
     else:
-        summary_label = "FAILED"
         summary_status = f"{total_failed}/{total_tests} tests failed"
 
     table_rows.append([
-        f"{summary_label}: {summary_status}",
+        f"{summary_status}",
         total_tests,
         total_passed,
         total_failed,
