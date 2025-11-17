@@ -1,3 +1,14 @@
+"""
+    Test Summary Utility
+    Reads pytest JSON report and displays test results in a tabular format.
+    Designed for both local runs and CI/CD systems like Jenkins.
+
+    Usage:
+        python utils/test_summary.py [json_report_file]
+        
+    Example:
+        python utils/test_summary.py test-results/report.json
+"""
 import json
 import sys
 from collections import defaultdict
