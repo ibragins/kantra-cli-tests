@@ -113,7 +113,7 @@ def build_discovery_command(binary_name,  **kwargs):
     print(command)
     return command
 
-def build_platform_discovery_command(organizations, spaces=None, app_name=None, output_dir=None, **kwargs):
+def build_platform_discovery_command(organizations, config, spaces=None, app_name=None, output_dir=None, **kwargs):
     """
         Builds a string for executing the "discover cloud-foundry" subcommand
 
@@ -131,7 +131,7 @@ def build_platform_discovery_command(organizations, spaces=None, app_name=None, 
             Exception: If required parameters are not provided.
     """
     kantra_path = os.getenv(constants.KANTRA_CLI_PATH)
-    cloudfoundry_files_path = os.getenv(constants.CLOUDFOUNDRY_FILES_PATH)
+    cloudfoundry_files_path = os.getenv(constants.REPORT_OUTPUT_PATH)
 
     if not kantra_path:
         raise Exception("Environment variable for KANTRA_CLI_PATH is not set")
@@ -142,11 +142,13 @@ def build_platform_discovery_command(organizations, spaces=None, app_name=None, 
     if not organizations or len(organizations) == 0:
         raise Exception('At least one organization is required')
 
-    command = kantra_path + 'discover cloud-foundry --use-live-connection'
+    command = kantra_path + ' discover cloud-foundry --use-live-connection'
 
     # Add organizations (required)
     for org in organizations:
-        command += ' --organizations=' + org
+        command += ' --orgs=' + org
+
+    command += ' --cf-config=' + config
 
     # Add spaces (optional)
     if spaces:
@@ -158,7 +160,7 @@ def build_platform_discovery_command(organizations, spaces=None, app_name=None, 
         command += ' --app-name=' + app_name
 
     # Add output directory
-    if output-dir:
+    if output_dir:
         command += ' --output-dir=' + cloudfoundry_files_path
 
     # Add any additional kwargs
@@ -173,14 +175,12 @@ def build_platform_discovery_command(organizations, spaces=None, app_name=None, 
     print(command)
     return command
 
-def build_asset_generation_command(input_file, chart_dir=None, **kwargs):
+def build_asset_generation_command(input_file, output_dir=None, **kwargs):
     """
         Builds a string for executing the "mta-cli generate helm" subcommand
 
         Args:
             input_file (str): Path to the input manifest file.
-            chart_dir (str, optional): Directory where the Helm chart will be generated.
-                If not provided, uses ASSET_GENERATION_OUTPUT environment variable.
             **kwargs (str): Optional keyword arguments to be passed to mta-cli as additional options.
                 this argument takes a dict, where each key is the argument, which can be passed with or without the '--'
 
@@ -190,7 +190,10 @@ def build_asset_generation_command(input_file, chart_dir=None, **kwargs):
         Raises:
             Exception: If required parameters are not provided.
     """
-    mta_cli_path = os.getenv('MTA_CLI_PATH', 'mta-cli')
+    kantra_path = os.getenv('MTA_CLI_PATH', 'mta-cli')
+    chart_dir = os.path.join(os.getenv(constants.PROJECT_PATH), 'cf-k8s-helm-chart', 'java-backend')
+    cloudfoundry_files_path = os.getenv(constants.REPORT_OUTPUT_PATH)
+
 
     if not input_file:
         raise Exception('Input file is required')
@@ -198,15 +201,12 @@ def build_asset_generation_command(input_file, chart_dir=None, **kwargs):
     if not os.path.exists(input_file):
         raise Exception("Input file `%s` does not exist" % input_file)
 
-    command = mta_cli_path + ' generate helm --input=' + input_file
+    command = kantra_path + ' generate helm --input=' + input_file
 
-    # Add chart directory
-    if chart_dir:
-        command += ' --chart-dir=' + chart_dir
-    else:
-        asset_output = os.getenv('ASSET_GENERATION_OUTPUT')
-        if asset_output:
-            command += ' --chart-dir=' + asset_output
+    command += ' --chart-dir=' + chart_dir
+
+    if output_dir:
+        command += ' --output-dir=' + cloudfoundry_files_path
 
     # Add any additional kwargs
     for key, value in kwargs.items():
