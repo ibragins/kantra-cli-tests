@@ -131,13 +131,9 @@ def build_platform_discovery_command(organizations, config, spaces=None, app_nam
             Exception: If required parameters are not provided.
     """
     kantra_path = os.getenv(constants.KANTRA_CLI_PATH)
-    cloudfoundry_files_path = os.getenv(constants.REPORT_OUTPUT_PATH)
 
     if not kantra_path:
         raise Exception("Environment variable for KANTRA_CLI_PATH is not set")
-
-    if not cloudfoundry_files_path:
-        raise Exception('Environment variable for Cloud Foundry files is not set')
 
     if not organizations or len(organizations) == 0:
         raise Exception('At least one organization is required')
@@ -161,7 +157,7 @@ def build_platform_discovery_command(organizations, config, spaces=None, app_nam
 
     # Add output directory
     if output_dir:
-        command += ' --output-dir=' + cloudfoundry_files_path
+        command += ' --output-dir=' + output_dir
 
     # Add any additional kwargs
     for key, value in kwargs.items():
@@ -191,7 +187,7 @@ def build_asset_generation_command(input_file, output_dir=None, **kwargs):
             Exception: If required parameters are not provided.
     """
     kantra_path = os.getenv('MTA_CLI_PATH', 'mta-cli')
-    chart_dir = os.path.join(os.getenv(constants.PROJECT_PATH), 'cf-k8s-helm-chart', 'java-backend')
+    chart_dir = os.path.join(os.getenv(constants.PROJECT_PATH), 'cf_sandbox', 'cf-k8s-helm-chart', 'java-backend')
     cloudfoundry_files_path = os.getenv(constants.REPORT_OUTPUT_PATH)
 
 
@@ -206,7 +202,7 @@ def build_asset_generation_command(input_file, output_dir=None, **kwargs):
     command += ' --chart-dir=' + chart_dir
 
     if output_dir:
-        command += ' --output-dir=' + cloudfoundry_files_path
+        command += ' --output-dir=' + output_dir
 
     # Add any additional kwargs
     for key, value in kwargs.items():

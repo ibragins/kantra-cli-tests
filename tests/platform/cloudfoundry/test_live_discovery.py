@@ -37,59 +37,98 @@ def clone_helm_chart_repo():
         print(f"Repository already exists at {repo_path}, skipping clone")
 
     yield repo_path
+
     if os.path.exists(repo_path):
-       shutil.rmtree(repo_path)
+        shutil.rmtree(repo_path)
 
 @pytest.fixture(scope="function")
 def scp_cf_config_file():
-    # TO DO: Remove hard coded values
-    private_key_file = os.path.join(os.getenv(
-        constants.CLOUDFOUNDRY_FILES_PATH), 'private_key')
-    ssh = SSHClient()
-    ssh.load_system_host_keys()
-    ssh.connect(
-        hostname="11.22.33.44",
-        username="fedora",
-        pkey=RSAKey.from_private_key_file(private_key_file),
-    )
+    cf_files_path = os.getenv(constants.CLOUDFOUNDRY_FILES_PATH)
+    cf_remote_host = os.getenv(constants.CF_REMOTE_HOST)
+    cf_remote_user = os.getenv(constants.CF_REMOTE_USER)
+    cf_remote_config_path = os.getenv(constants.CF_REMOTE_CONFIG_PATH)
 
-    scp = SCPClient(ssh.get_transport())
-    scp.get("/home/fedora/.cf/config.json", Path(os.getenv(constants.CLOUDFOUNDRY_FILES_PATH)))
+    if not all([cf_files_path, cf_remote_host, cf_remote_user, cf_remote_config_path]):
+        missing = []
+        if not cf_files_path:
+            missing.append("CLOUDFOUNDRY_FILES_PATH")
+        if not cf_remote_host:
+            missing.append("CF_REMOTE_HOST")
+        if not cf_remote_user:
+            missing.append("CF_REMOTE_USER")
+        if not cf_remote_config_path:
+            missing.append("CF_REMOTE_CONFIG_PATH")
+        raise Exception(f"Required environment variables not set: {', '.join(missing)}")
 
-    scp.close()
-    ssh.close()
+    cf_private_key_file = os.path.join(cf_files_path, 'private_key')
+    cf_local_config_path = os.path.join(cf_files_path, '.cf', 'config.json')
+    if not os.path.exists(cf_private_key_file):
+        raise Exception(f"Private key file not found: {cf_private_key_file}")
+
+    ssh = None
+    scp = None
+    try:
+        ssh = SSHClient()
+        ssh.load_system_host_keys()
+        ssh.connect(
+            hostname=cf_remote_host,
+            username=cf_remote_user,
+            pkey=RSAKey.from_private_key_file(cf_private_key_file),
+        )
+
+        scp = SCPClient(ssh.get_transport())
+        scp.get(cf_remote_config_path, 'tmp', recursive=True)
+
+        if not os.path.exists(cf_local_config_path):
+            raise Exception(f"Failed to scp Cloud Foundry config file to {cf_local_config_path}")
+        yield cf_local_config_path
+    finally:
+        if scp:
+            scp.close()
+        if ssh:
+            ssh.close()
 
 def test_cf_asset_generation_from_live_discovery(scp_cf_config_file, clone_helm_chart_repo):
-    output_dir = os.getenv(constants.CLOUDFOUNDRY_FILES_PATH)
+    """
+      Test end-to-end workflow: live discovery of CF application and asset generation.
+      1. Downloads CF config via SCP
+      2. Discovers CF application manifests
+      3. Generates Helm charts from discovered manifests
+      """
+    discovery_output_dir = os.path.join(os.getenv(constants.CLOUDFOUNDRY_FILES_PATH), 'discovery')
     asset_dir = os.path.join(os.getenv(constants.CLOUDFOUNDRY_FILES_PATH), 'assets')
 
-    command = build_platform_discovery_command(
+    discovery_command = build_platform_discovery_command(
         organizations=['org'],
-        spaces=['space'],
+        config=os.path.join(os.getenv(constants.CLOUDFOUNDRY_FILES_PATH)),
         app_name='hello-spring-cloud',
-        output_dir=output_dir
+        output_dir=discovery_output_dir
     )
 
     # Perform live discovery of Cloud Foundry(CF) application manifest
     # Input: CF application manifest, Output: Discovery manifest
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE,
+    print(f"Running discovery command: '{discovery_command}'")
+    discovery_output = subprocess.run(discovery_command, shell=True, check=True, stdout=subprocess.PIPE,
         encoding='utf-8').stdout
-    assert 'Writing content to file' in output, f"Discovery command failed"
+    assert 'Writing content to file' in discovery_output, f"Discovery command failed"
 
-    dir_path = Path(output_dir)
+    dir_path = Path(discovery_output_dir)
     assert dir_path.exists() and dir_path.is_dir(), f"Output directory '{dir_path}' was not created"
 
-    yaml_files = glob.glob(f'{output_dir}/*.yaml')
-    assert yaml_files, f"Discovery manifest was not generated in {output_dir}"
+    yaml_files = glob.glob(f'{discovery_output_dir}/*.yaml')
+    assert yaml_files, f"Discovery manifest was not generated in {discovery_output_dir}"
+    print(f"Found {len(yaml_files)} discovery manifest(s)")
 
     # Generate assets after discovering CF application
     # Use the first generated YAML file as input
     input_manifest = yaml_files[0]
-    asset_command = build_asset_generation_command(input_file=input_manifest)
+    print(f"Generating assets from {input_manifest}")
+    asset_command = build_asset_generation_command(input_file=input_manifest, output_dir=asset_dir)
 
+    print(f"Running asset generation command: '{asset_command}'")
     asset_output = subprocess.run(asset_command, shell=True, check=True, stdout=subprocess.PIPE,
         encoding='utf-8').stdout
     asset_files = glob.glob(f'{asset_dir}/*.yaml')
-    assert yaml_files, f"Assets were not generated in {asset_dir}"
+    assert asset_files, f"Assets were not generated in {asset_dir}"
 
 
