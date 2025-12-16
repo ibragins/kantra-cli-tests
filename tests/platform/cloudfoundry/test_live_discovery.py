@@ -1,5 +1,6 @@
 import glob
 import os
+import shlex
 import subprocess
 import pytest
 import shutil
@@ -37,7 +38,6 @@ def clone_helm_chart_repo():
         print(f"Repository already exists at {repo_path}, skipping clone")
 
     yield repo_path
-
     if os.path.exists(repo_path):
         shutil.rmtree(repo_path)
 
@@ -77,24 +77,32 @@ def scp_cf_config_file():
         )
 
         scp = SCPClient(ssh.get_transport())
-        scp.get(cf_remote_config_path, 'tmp', recursive=True)
+        scp.get(cf_remote_config_path, cf_files_path, recursive=True)
 
         if not os.path.exists(cf_local_config_path):
             raise Exception(f"Failed to scp Cloud Foundry config file to {cf_local_config_path}")
-        yield cf_local_config_path
+
     finally:
         if scp:
             scp.close()
         if ssh:
             ssh.close()
 
-def test_cf_asset_generation_from_live_discovery(scp_cf_config_file, clone_helm_chart_repo):
+    yield cf_local_config_path
+
+    cf_config_dir = os.path.join(cf_files_path, '.cf')
+    if os.path.exists(cf_config_dir):
+        shutil.rmtree(cf_config_dir)
+
+@pytest.mark.usefixtures("scp_cf_config_file", "clone_helm_chart_repo")
+def test_cf_asset_generation_from_live_discovery():
     """
       Test end-to-end workflow: live discovery of CF application and asset generation.
       1. Downloads CF config via SCP
       2. Discovers CF application manifests
       3. Generates Helm charts from discovered manifests
       """
+    repo_path = os.path.join(os.getenv(constants.CLOUDFOUNDRY_FILES_PATH), 'cf-k8s-helm-chart')
     discovery_output_dir = os.path.join(os.getenv(constants.CLOUDFOUNDRY_FILES_PATH), 'discovery')
     asset_dir = os.path.join(os.getenv(constants.CLOUDFOUNDRY_FILES_PATH), 'assets')
 
@@ -108,9 +116,9 @@ def test_cf_asset_generation_from_live_discovery(scp_cf_config_file, clone_helm_
     # Perform live discovery of Cloud Foundry(CF) application manifest
     # Input: CF application manifest, Output: Discovery manifest
     print(f"Running discovery command: '{discovery_command}'")
-    discovery_output = subprocess.run(discovery_command, shell=True, check=True, stdout=subprocess.PIPE,
-        encoding='utf-8').stdout
-    assert 'Writing content to file' in discovery_output, f"Discovery command failed"
+    discovery_output = subprocess.run(shlex.split(discovery_command), check=True, stdout=subprocess.PIPE,
+        text=True).stdout
+    assert 'Writing content to file' in discovery_output, "Discovery command failed"
 
     dir_path = Path(discovery_output_dir)
     assert dir_path.exists() and dir_path.is_dir(), f"Output directory '{dir_path}' was not created"
@@ -122,12 +130,12 @@ def test_cf_asset_generation_from_live_discovery(scp_cf_config_file, clone_helm_
     # Generate assets after discovering CF application
     # Use the first generated YAML file as input
     input_manifest = yaml_files[0]
+    chart_dir = os.path.join(repo_path, 'java-backend')
     print(f"Generating assets from {input_manifest}")
-    asset_command = build_asset_generation_command(input_file=input_manifest, output_dir=asset_dir)
+    asset_command = build_asset_generation_command(input_file=input_manifest, chart_dir=chart_dir, output_dir=asset_dir)
 
     print(f"Running asset generation command: '{asset_command}'")
-    asset_output = subprocess.run(asset_command, shell=True, check=True, stdout=subprocess.PIPE,
-        encoding='utf-8').stdout
+    subprocess.run(shlex.split(asset_command), check=True, stdout=subprocess.PIPE, text=True)
     asset_files = glob.glob(f'{asset_dir}/*.yaml')
     assert asset_files, f"Assets were not generated in {asset_dir}"
 

@@ -2,6 +2,7 @@ import os
 
 from utils import constants
 
+kantra_path = os.getenv('MTA_CLI_PATH')
 
 def build_analysis_command(binary_name, sources, targets, is_bulk=False, output_path=None, settings=None, with_deps = True, **kwargs):
     """
@@ -130,8 +131,6 @@ def build_platform_discovery_command(organizations, config, spaces=None, app_nam
         Raises:
             Exception: If required parameters are not provided.
     """
-    kantra_path = os.getenv(constants.KANTRA_CLI_PATH)
-
     if not kantra_path:
         raise Exception("Environment variable for KANTRA_CLI_PATH is not set")
 
@@ -171,12 +170,13 @@ def build_platform_discovery_command(organizations, config, spaces=None, app_nam
     print(command)
     return command
 
-def build_asset_generation_command(input_file, output_dir=None, **kwargs):
+def build_asset_generation_command(input_file, chart_dir, output_dir=None, **kwargs):
     """
         Builds a string for executing the "mta-cli generate helm" subcommand
 
         Args:
             input_file (str): Path to the input manifest file.
+            chart_dir (str): Path to the Helm chart directory.
             **kwargs (str): Optional keyword arguments to be passed to mta-cli as additional options.
                 this argument takes a dict, where each key is the argument, which can be passed with or without the '--'
 
@@ -186,10 +186,15 @@ def build_asset_generation_command(input_file, output_dir=None, **kwargs):
         Raises:
             Exception: If required parameters are not provided.
     """
-    kantra_path = os.getenv('MTA_CLI_PATH', 'mta-cli')
-    chart_dir = os.path.join(os.getenv(constants.PROJECT_PATH), 'cf_sandbox', 'cf-k8s-helm-chart', 'java-backend')
-    cloudfoundry_files_path = os.getenv(constants.REPORT_OUTPUT_PATH)
+    cf_files_path = os.getenv('CLOUDFOUNDRY_FILES_PATH')
 
+    if not all([kantra_path, cf_files_path]):
+        missing = []
+        if not kantra_path:
+            missing.append("MTA_CLI_PATH")
+        if not cf_files_path:
+            missing.append("CLOUDFOUNDRY_FILES_PATH)")
+        raise Exception(f"Required environment variables not set: {', '.join(missing)}")
 
     if not input_file:
         raise Exception('Input file is required')
@@ -212,5 +217,5 @@ def build_asset_generation_command(input_file, output_dir=None, **kwargs):
 
         if value:
             command += '=' + value
-
+    print(command)
     return command
