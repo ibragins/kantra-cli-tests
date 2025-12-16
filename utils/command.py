@@ -2,7 +2,7 @@ import os
 
 from utils import constants
 
-kantra_path = os.getenv('MTA_CLI_PATH')
+kantra_path = os.getenv('KANTRA_CLI_PATH')
 
 def build_analysis_command(binary_name, sources, targets, is_bulk=False, output_path=None, settings=None, with_deps = True, **kwargs):
     """
@@ -120,8 +120,11 @@ def build_platform_discovery_command(organizations, config, spaces=None, app_nam
 
         Args:
             organizations (list): List of organizations to discover (at least 1 required).
+            config (str): Directory path where the Cloud Foundry config file resides
+                         (the command looks for .cf/config.json within this directory).
             spaces (list, optional): List of spaces to discover.
             app_name (str, optional): Application name to discover.
+            output_dir (str, optional): Directory path for discovery output.
             **kwargs (str): Optional keyword arguments to be passed to Kantra as additional options.
                 this argument takes a dict, where each key is the argument, which can be passed with or without the '--'
 
@@ -136,6 +139,9 @@ def build_platform_discovery_command(organizations, config, spaces=None, app_nam
 
     if not organizations or len(organizations) == 0:
         raise Exception('At least one organization is required')
+
+    if not config:
+        raise Exception('Config directory path is required')
 
     command = kantra_path + ' discover cloud-foundry --use-live-connection'
 
@@ -177,6 +183,7 @@ def build_asset_generation_command(input_file, chart_dir, output_dir=None, **kwa
         Args:
             input_file (str): Path to the input manifest file.
             chart_dir (str): Path to the Helm chart directory.
+            output_dir (str, optional): Directory path for generated assets.
             **kwargs (str): Optional keyword arguments to be passed to mta-cli as additional options.
                 this argument takes a dict, where each key is the argument, which can be passed with or without the '--'
 
@@ -191,9 +198,9 @@ def build_asset_generation_command(input_file, chart_dir, output_dir=None, **kwa
     if not all([kantra_path, cf_files_path]):
         missing = []
         if not kantra_path:
-            missing.append("MTA_CLI_PATH")
+            missing.append("KANTRA_CLI_PATH")
         if not cf_files_path:
-            missing.append("CLOUDFOUNDRY_FILES_PATH)")
+            missing.append("CLOUDFOUNDRY_FILES_PATH")
         raise Exception(f"Required environment variables not set: {', '.join(missing)}")
 
     if not input_file:
@@ -201,6 +208,12 @@ def build_asset_generation_command(input_file, chart_dir, output_dir=None, **kwa
 
     if not os.path.exists(input_file):
         raise Exception("Input file `%s` does not exist" % input_file)
+
+    if not chart_dir:
+        raise Exception('Chart directory is required')
+
+    if not os.path.exists(chart_dir):
+        raise Exception(f"Chart directory does not exist: {chart_dir}")
 
     command = kantra_path + ' generate helm --input=' + input_file
 
