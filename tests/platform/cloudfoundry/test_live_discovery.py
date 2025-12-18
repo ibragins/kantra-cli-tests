@@ -25,6 +25,7 @@ def clone_helm_chart_repo():
     repo_name = "cf-k8s-helm-chart"
     repo_path = os.path.join(cf_files_path, repo_name)
 
+    created = False
     if not os.path.exists(repo_path):
         print(f"Cloning {repo_url} to {repo_path}")
         subprocess.run(
@@ -33,12 +34,13 @@ def clone_helm_chart_repo():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
+        created = True
         print(f"Successfully cloned repository to {repo_path}")
     else:
         print(f"Repository already exists at {repo_path}, skipping clone")
 
     yield repo_path
-    if os.path.exists(repo_path):
+    if created and os.path.exists(repo_path):
         shutil.rmtree(repo_path)
 
 @pytest.fixture(scope="function")
@@ -95,7 +97,6 @@ def scp_cf_config_file():
         shutil.rmtree(cf_config_dir)
 
 @pytest.mark.usefixtures("scp_cf_config_file", "clone_helm_chart_repo")
-@pytest.mark.skip(reason="Unskip once Infra task MTA-6527 is resolved")
 def test_cf_asset_generation_from_live_discovery():
     """
       Test end-to-end workflow: live discovery of CF application and asset generation.
@@ -109,7 +110,7 @@ def test_cf_asset_generation_from_live_discovery():
 
     discovery_command = build_platform_discovery_command(
         organizations=['org'],
-        config=os.path.join(os.getenv(constants.CLOUDFOUNDRY_FILES_PATH)),
+        config=os.getenv(constants.CLOUDFOUNDRY_FILES_PATH),
         app_name='hello-spring-cloud',
         output_dir=discovery_output_dir
     )

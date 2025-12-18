@@ -1,10 +1,9 @@
 import os
-import pytest
 
 from utils import constants
 
 def get_cli_path():
-    value = os.getenv("KANTRA_CLI_PATH")
+    value = os.getenv(constants.KANTRA_CLI_PATH)
     if not value:
         raise RuntimeError("KANTRA_CLI_PATH is not set")
     return value
@@ -197,15 +196,6 @@ def build_asset_generation_command(input_file, chart_dir, output_dir=None, **kwa
             Exception: If required parameters are not provided.
     """
     kantra_path = get_cli_path()
-    cf_files_path = os.getenv('CLOUDFOUNDRY_FILES_PATH')
-
-    if not all([kantra_path, cf_files_path]):
-        missing = []
-        if not kantra_path:
-            missing.append("KANTRA_CLI_PATH")
-        if not cf_files_path:
-            missing.append("CLOUDFOUNDRY_FILES_PATH")
-        raise Exception(f"Required environment variables not set: {', '.join(missing)}")
 
     if not input_file:
         raise Exception('Input file is required')
