@@ -44,18 +44,18 @@ def clone_helm_chart_repo():
 @pytest.fixture(scope="function")
 def scp_cf_config_file():
     cf_files_path = os.getenv(constants.CLOUDFOUNDRY_FILES_PATH)
-    cf_remote_host = os.getenv(constants.CF_REMOTE_HOST)
-    cf_remote_user = os.getenv(constants.CF_REMOTE_USER)
+    cf_host = os.getenv(constants.CF_HOST)
+    cf_user = os.getenv(constants.CF_USER)
     cf_remote_config_path = os.getenv(constants.CF_REMOTE_CONFIG_PATH)
 
-    if not all([cf_files_path, cf_remote_host, cf_remote_user, cf_remote_config_path]):
+    if not all([cf_files_path, cf_host, cf_user, cf_remote_config_path]):
         missing = []
         if not cf_files_path:
             missing.append("CLOUDFOUNDRY_FILES_PATH")
-        if not cf_remote_host:
-            missing.append("CF_REMOTE_HOST")
-        if not cf_remote_user:
-            missing.append("CF_REMOTE_USER")
+        if not cf_host:
+            missing.append("CF_HOST")
+        if not cf_user:
+            missing.append("CF_USER")
         if not cf_remote_config_path:
             missing.append("CF_REMOTE_CONFIG_PATH")
         raise Exception(f"Required environment variables not set: {', '.join(missing)}")
@@ -71,8 +71,8 @@ def scp_cf_config_file():
         ssh = SSHClient()
         ssh.load_system_host_keys()
         ssh.connect(
-            hostname=cf_remote_host,
-            username=cf_remote_user,
+            hostname=cf_host,
+            username=cf_user,
             pkey=RSAKey.from_private_key_file(cf_private_key_file),
         )
 
@@ -95,6 +95,7 @@ def scp_cf_config_file():
         shutil.rmtree(cf_config_dir)
 
 @pytest.mark.usefixtures("scp_cf_config_file", "clone_helm_chart_repo")
+@pytest.mark.skip(reason="Unskip once Infra task MTA-6527 is resolved")
 def test_cf_asset_generation_from_live_discovery():
     """
       Test end-to-end workflow: live discovery of CF application and asset generation.

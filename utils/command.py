@@ -1,8 +1,13 @@
 import os
+import pytest
 
 from utils import constants
 
-kantra_path = os.getenv('KANTRA_CLI_PATH')
+def get_cli_path():
+    value = os.getenv("KANTRA_CLI_PATH")
+    if not value:
+        raise RuntimeError("KANTRA_CLI_PATH is not set")
+    return value
 
 def build_analysis_command(binary_name, sources, targets, is_bulk=False, output_path=None, settings=None, with_deps = True, **kwargs):
     """
@@ -134,9 +139,7 @@ def build_platform_discovery_command(organizations, config, spaces=None, app_nam
         Raises:
             Exception: If required parameters are not provided.
     """
-    if not kantra_path:
-        raise Exception("Environment variable for KANTRA_CLI_PATH is not set")
-
+    kantra_path = get_cli_path()
     if not organizations or len(organizations) == 0:
         raise Exception('At least one organization is required')
 
@@ -193,6 +196,7 @@ def build_asset_generation_command(input_file, chart_dir, output_dir=None, **kwa
         Raises:
             Exception: If required parameters are not provided.
     """
+    kantra_path = get_cli_path()
     cf_files_path = os.getenv('CLOUDFOUNDRY_FILES_PATH')
 
     if not all([kantra_path, cf_files_path]):
