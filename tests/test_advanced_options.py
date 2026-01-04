@@ -4,12 +4,15 @@ import subprocess
 import sys
 import time
 
+import pytest
+
 from utils import constants
 from utils.command import build_analysis_command, build_discovery_command
 from utils.common import run_containerless_parametrize, verify_triggered_rules, verify_triggered_yaml_rules
 from utils.manage_maven_credentials import manage_credentials_in_maven_xml
 from utils.report import assert_story_points_from_report_file, get_json_from_report_output_js_file, clearReportDir, \
     get_dict_from_output_yaml_file
+from utils.squid import get_squid_logs, start_squid_container, stop_squid_container
 
 
 # Polarion TC 373
@@ -198,7 +201,7 @@ def test_custom_rules_disable_default_issue_781_855(analysis_data):
     # This test hits 2 known issues https://github.com/konveyor/analyzer-lsp/issues/781 & https://github.com/konveyor/analyzer-lsp/issues/855
     application_data = analysis_data['tackle-testapp-project']
     assert os.getenv(constants.PROJECT_PATH) is not None
-    custom_rule_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'yaml', 'test-rules')
+    custom_rule_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'yaml', 'test-rules', 'java')
 
     command = build_analysis_command(
         application_data['file_name'],
@@ -240,3 +243,69 @@ def test_custom_rules_disable_default_issue_781_855(analysis_data):
 
     report_data = get_dict_from_output_yaml_file()
     verify_triggered_yaml_rules(report_data, expected_rule_id_list)
+
+
+@pytest.mark.skip(reason="Product bug: proxy argument is ignored")
+@run_containerless_parametrize
+def test_https_proxy(analysis_data, additional_args):
+    """Test analysis using --https-proxy option to connect to outside world"""
+    application_data = analysis_data['tackle-testapp-public']
+    proxy_url = os.getenv('HTTPS_PROXY_URL', 'http://localhost:3128')
+    squid_container = os.getenv('SQUID_CONTAINER_NAME', 'squid-proxy')
+    start_squid_container(squid_container)
+
+    command = build_analysis_command(
+        application_data['file_name'],
+        application_data['sources'],
+        application_data['targets'],
+        **{'https-proxy': proxy_url},
+        **additional_args
+    )
+
+    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+    assert 'generating static report' in output
+
+    report_data = get_json_from_report_output_js_file(False)
+    assert len(report_data[0]['depItems']) > 0, "No dependencies were found"
+    violations = [item for item in report_data[0]['rulesets'] if item.get('violations')]
+    assert len(violations) > 0, "Expected issues are missing"
+
+    # Verify proxy was used by checking squid logs
+    squid_logs = get_squid_logs(squid_container)
+    print(f"Squid proxy logs:\n{squid_logs}")
+    assert len(squid_logs) > 0, "Squid proxy logs are empty - proxy may not have been used"
+    assert 'CONNECT' in squid_logs, "No HTTPS CONNECT requests found in squid logs"
+    stop_squid_container(squid_container)
+
+
+@pytest.mark.skip(reason="Product bug: proxy argument is ignored")
+@run_containerless_parametrize
+def test_http_proxy(analysis_data, additional_args):
+    """Test analysis using --http-proxy option to connect to outside world"""
+    application_data = analysis_data['tackle-testapp-public']
+    proxy_url = os.getenv('HTTP_PROXY_URL', 'http://localhost:3128')
+    squid_container = os.getenv('SQUID_CONTAINER_NAME', 'squid-proxy')
+    start_squid_container(squid_container)
+
+    command = build_analysis_command(
+        application_data['file_name'],
+        application_data['sources'],
+        application_data['targets'],
+        **{'http-proxy': proxy_url},
+        **additional_args
+    )
+
+    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+    assert 'generating static report' in output
+
+    report_data = get_json_from_report_output_js_file(False)
+    assert len(report_data[0]['depItems']) > 0, "No dependencies were found"
+    violations = [item for item in report_data[0]['rulesets'] if item.get('violations')]
+    assert len(violations) > 0, "Expected issues are missing"
+
+    # Verify proxy was used by checking squid logs
+    squid_logs = get_squid_logs(squid_container)
+    print(f"Squid proxy logs:\n{squid_logs}")
+    assert len(squid_logs) > 0, "Squid proxy logs are empty - proxy may not have been used"
+    assert 'TCP_' in squid_logs or 'CONNECT' in squid_logs, "No HTTP requests found in squid logs"
+    stop_squid_container(squid_container)
