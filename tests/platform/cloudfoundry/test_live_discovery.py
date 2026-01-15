@@ -47,19 +47,22 @@ def clone_helm_chart_repo():
 def scp_cf_config_file():
     cf_files_path = os.getenv(constants.CLOUDFOUNDRY_FILES_PATH)
     cf_host = os.getenv(constants.CF_HOST)
-    cf_user = os.getenv(constants.CF_USER)
+    cf_ssh_user = os.getenv(constants.CF_SSH_USER)
     cf_remote_config_path = os.getenv(constants.CF_REMOTE_CONFIG_PATH)
+    cf_admin_password = os.getenv(constants.CF_ADMIN_PASSWORD)
 
-    if not all([cf_files_path, cf_host, cf_user, cf_remote_config_path]):
+    if not all([cf_files_path, cf_host, cf_ssh_user, cf_remote_config_path, cf_admin_password]):
         missing = []
         if not cf_files_path:
             missing.append("CLOUDFOUNDRY_FILES_PATH")
         if not cf_host:
             missing.append("CF_HOST")
-        if not cf_user:
-            missing.append("CF_USER")
+        if not cf_ssh_user:
+            missing.append("CF_SSH_USER")
         if not cf_remote_config_path:
             missing.append("CF_REMOTE_CONFIG_PATH")
+        if not cf_admin_password:
+            missing.append("CF_ADMIN_PASSWORD")
         raise Exception(f"Required environment variables not set: {', '.join(missing)}")
 
     cf_private_key_file = os.path.join(cf_files_path, 'private_key')
@@ -74,9 +77,20 @@ def scp_cf_config_file():
         ssh.load_system_host_keys()
         ssh.connect(
             hostname=cf_host,
-            username=cf_user,
+            username=cf_ssh_user,
             pkey=RSAKey.from_private_key_file(cf_private_key_file),
         )
+
+        # Run CF login command on CF instance
+        cf_login_cmd = f'cf login -a https://api.bosh-lite.com --skip-ssl-validation -u admin -p {shlex.quote(cf_admin_password)} -o org -s space'
+        _, stdout, stderr = ssh.exec_command(cf_login_cmd)
+
+        exit_status = stdout.channel.recv_exit_status()
+        if exit_status != 0:
+            error_output = stderr.read().decode()
+            raise Exception(f"CF login failed with exit status {exit_status}: {error_output}")
+
+        print(f"CF login output: {stdout.read().decode()}")
 
         scp = SCPClient(ssh.get_transport())
         scp.get(cf_remote_config_path, cf_files_path, recursive=True)
