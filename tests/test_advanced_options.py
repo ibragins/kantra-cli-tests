@@ -109,7 +109,8 @@ def test_analysis_of_private_repo(analysis_data, additional_args):
     application_data = analysis_data['tackle-testapp-public']
     custom_maven_settings = os.path.join(
         os.getenv(constants.PROJECT_PATH),
-        'data/xml',
+        'data',
+        'xml',
         'tackle-testapp-public-settings.xml'
     )
     manage_credentials_in_maven_xml(custom_maven_settings)
