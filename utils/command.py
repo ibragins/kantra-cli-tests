@@ -226,3 +226,31 @@ def build_asset_generation_command(input_file, chart_dir, output_dir=None, **kwa
             command += '=' + value
     print(command)
     return command
+
+
+def build_central_config_login_command(hub_url, username, password, secure=True):
+    """
+    Builds a string for executing the "central config login" subcommand
+    Args:
+        hub_url: URL of the hub server.
+        username: username to log in to the hub
+        password: password to log in to the hub
+        secure: Set to false to ignore SSL certificate verification
+
+    Returns: Command to execute with the specified options and arguments.
+
+    """
+    kantra_path = get_cli_path()
+    return [kantra_path, 'config', 'login', hub_url, username, password] + (['--insecure'] if not secure else [])
+
+
+def build_central_config_sync_command(app_url, secure=True):
+    """
+    Builds a string for executing the "central config login" subcommand
+    Args:
+        app_url: URL of the application to be synced.
+    Returns: Command to execute with the specified options and arguments.
+
+    """
+    kantra_path = get_cli_path()
+    return [kantra_path, 'config', 'sync', '--url', app_url] + (['--insecure'] if not secure else [])
