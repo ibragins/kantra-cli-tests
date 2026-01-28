@@ -135,3 +135,24 @@ def extract_name_and_violations_from_dictionary(data):
         if name is not None:
             result[name] = item.get("violations", [])
     return result
+
+def get_hub_url():
+    value = os.getenv("HUB_URL")
+    if not value:
+        value = "http://localhost:8080"
+    return value
+
+def get_hub_username():
+    return os.getenv("HUB_USERNAME")
+
+def get_hub_password():
+    return os.getenv("HUB_PASSWORD")
+
+def get_hub_secure():
+    is_secure_raw = os.getenv("HUB_IS_SECURE", "false")
+    return str(is_secure_raw).lower() in ("true", "1", "yes")
+
+def get_full_application_path(binary_name):
+    if not binary_name:
+        raise Exception("No binary name provided")
+    return os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'applications', binary_name)
