@@ -1,0 +1,79 @@
+name: Central Config Tests
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "tests/platform/centralconfig/**"
+      - ".github/workflows/central-config-tests.yaml"
+  push:
+    branches: ["main"]
+    paths:
+      - "tests/platform/centralconfig/**"
+      - ".github/workflows/central-config-tests.yaml"
+  workflow_dispatch:
+    inputs:
+      operator_tag:
+        description: "Konveyor operator tag"
+        required: false
+        default: "latest"
+
+jobs:
+  central-config-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start minikube
+        uses: konveyor/tackle2-operator/.github/actions/start-minikube@main
+        with:
+          memory: "max"
+          cpus: "max"
+
+      - name: Install Konveyor
+        uses: konveyor/tackle2-operator/.github/actions/install-konveyor@main
+        with:
+          operator-bundle-image: quay.io/konveyor/tackle2-operator-bundle:${{ github.event.inputs.operator_tag || 'latest' }}
+
+      - name: Wait for Hub and get URL
+        run: |
+          kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=tackle-hub -n konveyor-tackle --timeout=300s
+          export HUB_URL=$(minikube service tackle-hub -n konveyor-tackle --url)/hub
+          echo "HUB_URL=$HUB_URL" >> $GITHUB_ENV
+
+      - name: Get kantra bundle
+        run: |
+          export KANTRA_DIR=$HOME/.kantra
+          mkdir -p $KANTRA_DIR
+          docker create --name kantra-download quay.io/konveyor/kantra:latest
+          docker cp kantra-download:/usr/local/bin/kantra $KANTRA_DIR/kantra
+          docker cp kantra-download:/jdtls $KANTRA_DIR/jdtls
+          docker cp kantra-download:/bin/fernflower.jar $KANTRA_DIR/fernflower.jar
+          docker cp kantra-download:/usr/local/static-report $KANTRA_DIR/static-report
+          docker cp kantra-download:/opt/rulesets $KANTRA_DIR/rulesets
+          docker cp kantra-download:/usr/local/etc/maven.default.index $KANTRA_DIR/maven.default.index
+          chmod +x $KANTRA_DIR/kantra
+          mkdir -p $HOME/.config
+          ln -s $KANTRA_DIR $HOME/.config/.kantra
+          echo "KANTRA_CLI_PATH=$KANTRA_DIR/kantra" >> $GITHUB_ENV
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies & run tests
+        env:
+          HUB_URL: ${{ env.HUB_URL }}
+          HUB_USERNAME: ""
+          HUB_PASSWORD: ""
+          HUB_SECURE: "false"
+          HUB_APP_URL: "https://github.com/ibraginsky/book-server"
+          PROJECT_PATH: ${{ github.workspace }}
+          REPORT_OUTPUT_PATH: ${{ github.workspace }}/report
+        run: |
+          pip install -r requirements.txt
+          mkdir -p report
+          pytest -s tests/platform/centralconfig/test_central_config.py -v

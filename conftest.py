@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 pytest_plugins = [
     "fixtures.analysis",
     "fixtures.transformation",
+    "fixtures.ccm",
 ]
 
 
