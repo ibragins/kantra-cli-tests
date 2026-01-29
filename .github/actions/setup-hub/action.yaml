@@ -1,15 +1,15 @@
 name: Setup Hub Instance
-description: Clone, build, and start tackle2-hub with entities
+description: Extract and start tackle2-hub from container with entities
 
 inputs:
-  hub_repo:
-    description: 'Hub repository URL'
+  hub_image:
+    description: 'Hub container image URL (without tag)'
     required: false
-    default: 'https://github.com/konveyor/tackle2-hub.git'
-  hub_branch:
-    description: 'Hub branch to checkout'
+    default: 'quay.io/konveyor/tackle2-hub'
+  hub_tag:
+    description: 'Hub container image tag'
     required: false
-    default: 'main'
+    default: 'latest'
 
 outputs:
   hub_url:
@@ -22,26 +22,27 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Setup Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.22'
-        cache: false
-
-    - name: Clone tackle2-hub
+    - name: Extract hub from container
       shell: bash
       run: |
-        echo "Cloning tackle2-hub from ${{ inputs.hub_repo }}..."
-        git clone --depth 1 --branch ${{ inputs.hub_branch }} ${{ inputs.hub_repo }} "$RUNNER_TEMP/tackle2-hub"
+        echo "Extracting hub from ${{ inputs.hub_image }}:${{ inputs.hub_tag }}..."
 
-    - name: Build hub
-      shell: bash
-      run: |
-        cd "$RUNNER_TEMP/tackle2-hub"
-        echo "Building hub..."
-        go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5
-        go install golang.org/x/tools/cmd/goimports@v0.24
-        make hub
+        # Pull hub container image
+        docker pull ${{ inputs.hub_image }}:${{ inputs.hub_tag }}
+
+        # Create temporary container
+        docker create --name hub-extract ${{ inputs.hub_image }}:${{ inputs.hub_tag }}
+
+        # Extract hub binary
+        mkdir -p "$RUNNER_TEMP/hub-bin"
+        docker cp hub-extract:/usr/bin/hub "$RUNNER_TEMP/hub-bin/hub"
+        chmod +x "$RUNNER_TEMP/hub-bin/hub"
+
+        # Cleanup container
+        docker rm hub-extract
+
+        echo "Hub binary extracted successfully"
+        "$RUNNER_TEMP/hub-bin/hub" version || echo "Hub binary ready"
 
     - name: Start hub in background
       shell: bash
@@ -53,8 +54,7 @@ runs:
         rm -f "$DB_PATH"
         echo "Starting hub..."
         echo "Environment: DB_PATH=$DB_PATH, DISCONNECTED=$DISCONNECTED, HUB_BASE_URL=$HUB_BASE_URL"
-        cd "$RUNNER_TEMP/tackle2-hub"
-        bin/hub > "$RUNNER_TEMP/hub.log" 2>&1 &
+        "$RUNNER_TEMP/hub-bin/hub" > "$RUNNER_TEMP/hub.log" 2>&1 &
         HUB_PID=$!
         echo "HUB_PID=$HUB_PID" >> $GITHUB_ENV
         echo "Hub started with PID: $HUB_PID"

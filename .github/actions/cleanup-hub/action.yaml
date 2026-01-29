@@ -43,4 +43,4 @@ runs:
       run: |
         echo "Cleaning up hub files..."
         rm -f "$RUNNER_TEMP/hub.pid" "$RUNNER_TEMP/hub.db" "$RUNNER_TEMP/hub.log" || true
-        rm -rf "$RUNNER_TEMP/tackle2-hub" || true
+        rm -rf "$RUNNER_TEMP/hub-bin" || true
