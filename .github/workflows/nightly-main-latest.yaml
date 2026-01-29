@@ -2,10 +2,39 @@ name: Nightly CLI test for main
 
 on:
   schedule:
-    - cron: '08 1,13 * * *'
+    - cron: "08 1,13 * * *"
 
 jobs:
+  tackle-on-minikube:
+    name: Prerequisite – Minikube and Tackle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start minikube
+        uses: konveyor/tackle2-operator/.github/actions/start-minikube@main
+        with:
+          memory: "max"
+          cpus: "max"
+
+      - name: Install Tackle
+        uses: konveyor/tackle2-operator/.github/actions/install-tackle@main
+        with:
+          operator-bundle-image: quay.io/konveyor/tackle2-operator-bundle:latest
+          hub-image: quay.io/konveyor/tackle2-hub:latest
+          ui-image: quay.io/konveyor/tackle2-ui:latest
+          addon-analyzer-image: quay.io/konveyor/tackle2-addon-analyzer:latest
+          image-pull-policy: IfNotPresent
+          analyzer-container-memory: 0
+          analyzer-container-cpu: 0
+
+      - name: Wait for Tackle to be ready
+        run: |
+          echo "Waiting for Tackle deployments in konveyor-tackle namespace..."
+          kubectl wait deployment --all -n konveyor-tackle --for=condition=available --timeout=300s || true
+          echo "Tackle pods:"
+          kubectl get pods -n konveyor-tackle -o wide
+
   test-suite:
+    needs: tackle-on-minikube
     uses: konveyor/kantra-cli-tests/.github/workflows/test-suite.yaml@main
     secrets: inherit
     with:
