@@ -83,18 +83,15 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup Hub Instance
-      uses: ./.github/actions/setup-hub
+    # NOTE: Hub setup not supported on Windows
+    # Building from source fails due to Makefile incompatibilities
+    # Container extraction doesn't work (hub container has no Windows manifest)
 
     - name: Windows container-less tests
       uses: ./.github/actions/tests-windows-containerless
       with:
         tier: ${{ inputs.tier }}
         maven_token: ${{ secrets.GH_TOKEN }}
-
-    - name: Cleanup Hub Instance
-      if: always()
-      uses: ./.github/actions/cleanup-hub
 
   tests-linux-containerless:
     runs-on: ubuntu-latest
