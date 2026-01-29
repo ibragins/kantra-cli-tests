@@ -14,8 +14,9 @@ echo ""
 # Function to check if hub is ready
 check_hub_ready() {
     echo "Checking if hub is ready..."
+    local CURL_OPTS=(--fail --silent --show-error --connect-timeout 3 --max-time 15)
     for i in {1..30}; do
-        if curl -s "${BASE_URL}/applications" > /dev/null 2>&1; then
+        if curl "${CURL_OPTS[@]}" "${BASE_URL}/applications" > /dev/null; then
             echo "✓ Hub is ready!"
             return 0
         fi
@@ -34,7 +35,7 @@ echo "============================================"
 echo "Step 1: Creating Target"
 echo "============================================"
 
-TARGET_RESPONSE=$(curl -s -X POST "${BASE_URL}/targets" \
+TARGET_RESPONSE=$(curl --fail --silent --show-error -X POST "${BASE_URL}/targets" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "cloud-readiness",
@@ -62,7 +63,7 @@ echo "============================================"
 echo "Step 2: Creating Analysis Profile"
 echo "============================================"
 
-PROFILE_RESPONSE=$(curl -s -X POST "${BASE_URL}/analysis/profiles" \
+PROFILE_RESPONSE=$(curl --fail --silent --show-error -X POST "${BASE_URL}/analysis/profiles" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "profile1",
@@ -105,7 +106,7 @@ echo "============================================"
 echo "Step 3: Creating Application"
 echo "============================================"
 
-APP_RESPONSE=$(curl -s -X POST "${BASE_URL}/applications" \
+APP_RESPONSE=$(curl --fail --silent --show-error -X POST "${BASE_URL}/applications" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "application1",
@@ -131,7 +132,7 @@ echo "============================================"
 echo "Step 4: Creating Archetype with Target Profile"
 echo "============================================"
 
-ARCHETYPE_RESPONSE=$(curl -s -X POST "${BASE_URL}/archetypes" \
+ARCHETYPE_RESPONSE=$(curl --fail --silent --show-error -X POST "${BASE_URL}/archetypes" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "archetype1",
@@ -193,17 +194,20 @@ echo "============================================"
 echo "Verification"
 echo "============================================"
 
+# Curl options for safe verification requests
+CURL_VERIFY_OPTS=(--fail --silent --show-error --connect-timeout 5 --max-time 10)
+
 echo ""
 echo "Applications:"
-curl -s "${BASE_URL}/applications" | jq '.[] | {id, name, description}'
+curl "${CURL_VERIFY_OPTS[@]}" "${BASE_URL}/applications" | jq '.[] | {id, name, description}'
 
 echo ""
 echo "Analysis Profiles:"
-curl -s "${BASE_URL}/analysis/profiles" | jq '.[] | {id, name, description, targets: .rules.targets}'
+curl "${CURL_VERIFY_OPTS[@]}" "${BASE_URL}/analysis/profiles" | jq '.[] | {id, name, description, targets: .rules.targets}'
 
 echo ""
 echo "Archetypes:"
-curl -s "${BASE_URL}/archetypes" | jq '.[] | {id, name, description, profiles: .profiles | map({id, name, analysisProfile})}'
+curl "${CURL_VERIFY_OPTS[@]}" "${BASE_URL}/archetypes" | jq '.[] | {id, name, description, profiles: .profiles | map({id, name, analysisProfile})}'
 
 echo ""
 echo "============================================"
