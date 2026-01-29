@@ -83,14 +83,18 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # NOTE: Hub setup skipped on Windows - requires POSIX environment
-    # TODO: Create Windows-compatible hub setup action if hub integration needed on Windows
+    - name: Setup Hub Instance
+      uses: ./.github/actions/setup-hub
 
     - name: Windows container-less tests
       uses: ./.github/actions/tests-windows-containerless
       with:
         tier: ${{ inputs.tier }}
         maven_token: ${{ secrets.GH_TOKEN }}
+
+    - name: Cleanup Hub Instance
+      if: always()
+      uses: ./.github/actions/cleanup-hub
 
   tests-linux-containerless:
     runs-on: ubuntu-latest

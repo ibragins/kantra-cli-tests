@@ -9,8 +9,9 @@ runs:
       shell: bash
       run: |
         echo "Stopping hub instance..."
-        if [ -f /tmp/hub.pid ]; then
-          HUB_PID=$(cat /tmp/hub.pid)
+        PID_FILE="${{ runner.temp }}/hub.pid"
+        if [ -f "$PID_FILE" ]; then
+          HUB_PID=$(cat "$PID_FILE")
           if ps -p $HUB_PID > /dev/null 2>&1; then
             echo "Killing hub process $HUB_PID"
             kill $HUB_PID || true
@@ -24,7 +25,7 @@ runs:
             echo "Hub process $HUB_PID not running"
           fi
         else
-          echo "No hub PID file found"
+          echo "No hub PID file found at $PID_FILE"
         fi
 
     - name: Show hub logs on failure
@@ -34,12 +35,12 @@ runs:
         echo "============================================"
         echo "Hub Logs"
         echo "============================================"
-        cat /tmp/hub.log || echo "No hub logs found"
+        cat "${{ runner.temp }}/hub.log" || echo "No hub logs found"
 
     - name: Cleanup hub files
       if: always()
       shell: bash
       run: |
         echo "Cleaning up hub files..."
-        rm -f /tmp/hub.pid /tmp/hub.db /tmp/hub.log || true
-        rm -rf /tmp/tackle2-hub || true
+        rm -f "${{ runner.temp }}/hub.pid" "${{ runner.temp }}/hub.db" "${{ runner.temp }}/hub.log" || true
+        rm -rf "${{ runner.temp }}/tackle2-hub" || true
