@@ -1,17 +1,16 @@
 name: CLI container-less on Windows
+description: Run Kantra CLI tests in containerless mode on Windows
 
 inputs:
   tier:
     description: |
       Test TIER name
     required: false
-    type: string
     default: TIER0
   maven_token:
     description: |
       Token for public github maven repo access
     required: false
-    type: string
     default: ""
 
 runs:

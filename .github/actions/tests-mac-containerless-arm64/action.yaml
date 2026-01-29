@@ -1,17 +1,16 @@
-name: CLI container-less on Mac
+name: CLI container-less on Mac ARM64
+description: Run Kantra CLI tests in containerless mode on macOS ARM64
 
 inputs:
   tier:
     description: |
       Test TIER name
     required: false
-    type: string
     default: TIER0
   maven_token:
     description: |
       Token for public github maven repo access
     required: false
-    type: string
     default: ""
 
 runs:

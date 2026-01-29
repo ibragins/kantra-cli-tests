@@ -1,17 +1,16 @@
-name: CLI containes on Mac
+name: CLI containers on Mac
+description: Run Kantra CLI tests in container mode on macOS
 
 inputs:
   tier:
     description: |
       Test TIER name
     required: false
-    type: string
     default: TIER0
   maven_token:
     description: |
       Token for public github maven repo access
     required: false
-    type: string
     default: ""
 
 runs:

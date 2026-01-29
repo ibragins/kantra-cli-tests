@@ -9,7 +9,7 @@ runs:
       shell: bash
       run: |
         echo "Stopping hub instance..."
-        PID_FILE="${{ runner.temp }}/hub.pid"
+        PID_FILE="$RUNNER_TEMP/hub.pid"
         if [ -f "$PID_FILE" ]; then
           HUB_PID=$(cat "$PID_FILE")
           if ps -p $HUB_PID > /dev/null 2>&1; then
@@ -35,12 +35,12 @@ runs:
         echo "============================================"
         echo "Hub Logs"
         echo "============================================"
-        cat "${{ runner.temp }}/hub.log" || echo "No hub logs found"
+        cat "$RUNNER_TEMP/hub.log" || echo "No hub logs found"
 
     - name: Cleanup hub files
       if: always()
       shell: bash
       run: |
         echo "Cleaning up hub files..."
-        rm -f "${{ runner.temp }}/hub.pid" "${{ runner.temp }}/hub.db" "${{ runner.temp }}/hub.log" || true
-        rm -rf "${{ runner.temp }}/tackle2-hub" || true
+        rm -f "$RUNNER_TEMP/hub.pid" "$RUNNER_TEMP/hub.db" "$RUNNER_TEMP/hub.log" || true
+        rm -rf "$RUNNER_TEMP/tackle2-hub" || true

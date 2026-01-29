@@ -32,12 +32,12 @@ runs:
       shell: bash
       run: |
         echo "Cloning tackle2-hub from ${{ inputs.hub_repo }}..."
-        git clone --depth 1 --branch ${{ inputs.hub_branch }} ${{ inputs.hub_repo }} ${{ runner.temp }}/tackle2-hub
+        git clone --depth 1 --branch ${{ inputs.hub_branch }} ${{ inputs.hub_repo }} "$RUNNER_TEMP/tackle2-hub"
 
     - name: Build hub
       shell: bash
-      working-directory: ${{ runner.temp }}/tackle2-hub
       run: |
+        cd "$RUNNER_TEMP/tackle2-hub"
         echo "Building hub..."
         go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5
         go install golang.org/x/tools/cmd/goimports@v0.24
@@ -45,22 +45,22 @@ runs:
 
     - name: Start hub in background
       shell: bash
-      working-directory: ${{ runner.temp }}/tackle2-hub
       env:
-        DB_PATH: ${{ runner.temp }}/hub.db
         DISCONNECTED: 1
         HUB_BASE_URL: localhost:8080
       run: |
+        export DB_PATH="$RUNNER_TEMP/hub.db"
         rm -f "$DB_PATH"
         echo "Starting hub..."
         echo "Environment: DB_PATH=$DB_PATH, DISCONNECTED=$DISCONNECTED, HUB_BASE_URL=$HUB_BASE_URL"
-        bin/hub > "${{ runner.temp }}/hub.log" 2>&1 &
+        cd "$RUNNER_TEMP/tackle2-hub"
+        bin/hub > "$RUNNER_TEMP/hub.log" 2>&1 &
         HUB_PID=$!
         echo "HUB_PID=$HUB_PID" >> $GITHUB_ENV
         echo "Hub started with PID: $HUB_PID"
 
         # Save PID to file for cleanup
-        echo $HUB_PID > "${{ runner.temp }}/hub.pid"
+        echo $HUB_PID > "$RUNNER_TEMP/hub.pid"
 
     - name: Wait for hub to be ready
       shell: bash
@@ -80,7 +80,7 @@ runs:
         if ! curl "${CURL_OPTS[@]}" http://localhost:8080/applications > /dev/null; then
           echo "ERROR: Hub failed to start"
           echo "Hub logs:"
-          cat "${{ runner.temp }}/hub.log" || true
+          cat "$RUNNER_TEMP/hub.log" || true
           exit 1
         fi
 
@@ -108,5 +108,5 @@ runs:
         echo "============================================"
         echo "Hub URL: http://localhost:8080"
         echo "Hub PID: $HUB_PID"
-        echo "Database: ${{ runner.temp }}/hub.db"
+        echo "Database: $RUNNER_TEMP/hub.db"
         echo "============================================"
