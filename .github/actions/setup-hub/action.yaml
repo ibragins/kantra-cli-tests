@@ -46,13 +46,14 @@ runs:
     - name: Start hub in background
       shell: bash
       working-directory: /tmp/tackle2-hub
+      env:
+        DB_PATH: /tmp/hub.db
+        DISCONNECT: 1
+        HUB_BASE_URL: localhost:8080
       run: |
-        export DB_PATH=/tmp/hub.db
         rm -f $DB_PATH
-        export DISCONNECT=1
-        export HUB_BASE_URL="localhost:8080"
-
         echo "Starting hub..."
+        echo "Environment: DB_PATH=$DB_PATH, DISCONNECT=$DISCONNECT, HUB_BASE_URL=$HUB_BASE_URL"
         bin/hub > /tmp/hub.log 2>&1 &
         HUB_PID=$!
         echo "HUB_PID=$HUB_PID" >> $GITHUB_ENV
@@ -84,8 +85,9 @@ runs:
 
     - name: Create hub entities
       shell: bash
+      env:
+        HUB_BASE_URL: localhost:8080
       run: |
-        export HUB_BASE_URL="localhost:8080"
         chmod +x ${{ github.workspace }}/scripts/create-entities.sh
         ${{ github.workspace }}/scripts/create-entities.sh
 
