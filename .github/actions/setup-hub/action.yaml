@@ -1,0 +1,109 @@
+name: Setup Hub Instance
+description: Clone, build, and start tackle2-hub with entities
+
+inputs:
+  hub_repo:
+    description: 'Hub repository URL'
+    required: false
+    default: 'https://github.com/konveyor/tackle2-hub.git'
+  hub_branch:
+    description: 'Hub branch to checkout'
+    required: false
+    default: 'main'
+
+outputs:
+  hub_url:
+    description: 'Hub base URL'
+    value: ${{ steps.set-outputs.outputs.hub_url }}
+  hub_pid:
+    description: 'Hub process ID'
+    value: ${{ steps.set-outputs.outputs.hub_pid }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+        cache: false
+
+    - name: Clone tackle2-hub
+      shell: bash
+      run: |
+        echo "Cloning tackle2-hub from ${{ inputs.hub_repo }}..."
+        git clone --depth 1 --branch ${{ inputs.hub_branch }} ${{ inputs.hub_repo }} /tmp/tackle2-hub
+
+    - name: Build hub
+      shell: bash
+      working-directory: /tmp/tackle2-hub
+      run: |
+        echo "Building hub..."
+        go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5
+        go install golang.org/x/tools/cmd/goimports@v0.24
+        make hub
+
+    - name: Start hub in background
+      shell: bash
+      working-directory: /tmp/tackle2-hub
+      run: |
+        export DB_PATH=/tmp/hub.db
+        rm -f $DB_PATH
+        export DISCONNECT=1
+        export HUB_BASE_URL="localhost:8080"
+
+        echo "Starting hub..."
+        bin/hub > /tmp/hub.log 2>&1 &
+        HUB_PID=$!
+        echo "HUB_PID=$HUB_PID" >> $GITHUB_ENV
+        echo "Hub started with PID: $HUB_PID"
+
+        # Save PID to file for cleanup
+        echo $HUB_PID > /tmp/hub.pid
+
+    - name: Wait for hub to be ready
+      shell: bash
+      run: |
+        echo "Waiting for hub to start..."
+        for i in {1..30}; do
+          if curl -s http://localhost:8080/applications > /dev/null 2>&1; then
+            echo "Hub is ready!"
+            break
+          fi
+          echo "Attempt $i: Hub not ready yet, waiting..."
+          sleep 2
+        done
+
+        # Verify hub is accessible
+        if ! curl -s http://localhost:8080/applications > /dev/null 2>&1; then
+          echo "ERROR: Hub failed to start"
+          echo "Hub logs:"
+          cat /tmp/hub.log || true
+          exit 1
+        fi
+
+    - name: Create hub entities
+      shell: bash
+      run: |
+        export HUB_BASE_URL="localhost:8080"
+        chmod +x ${{ github.workspace }}/scripts/create-entities.sh
+        ${{ github.workspace }}/scripts/create-entities.sh
+
+    - name: Set outputs
+      id: set-outputs
+      shell: bash
+      run: |
+        echo "hub_url=http://localhost:8080" >> $GITHUB_OUTPUT
+        echo "hub_pid=$HUB_PID" >> $GITHUB_OUTPUT
+        echo "HUB_BASE_URL=http://localhost:8080" >> $GITHUB_ENV
+
+    - name: Display hub info
+      shell: bash
+      run: |
+        echo "============================================"
+        echo "Hub Instance Ready"
+        echo "============================================"
+        echo "Hub URL: http://localhost:8080"
+        echo "Hub PID: $HUB_PID"
+        echo "Database: /tmp/hub.db"
+        echo "============================================"

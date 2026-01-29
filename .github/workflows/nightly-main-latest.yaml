@@ -3,10 +3,18 @@ name: Nightly CLI test for main
 on:
   schedule:
     - cron: '08 1,13 * * *'
+  # TEMPORARY: Enable for PR testing - REVERT AFTER TESTING
+  push:
+    branches:
+      - create_hub_instance_for_ccm_tests
+  pull_request:
+    branches:
+      - main
 
 jobs:
   test-suite:
-    uses: konveyor/kantra-cli-tests/.github/workflows/test-suite.yaml@main
+    # TEMPORARY: Use current branch for PR testing - REVERT to @main AFTER TESTING
+    uses: konveyor/kantra-cli-tests/.github/workflows/test-suite.yaml@create_hub_instance_for_ccm_tests
     secrets: inherit
     with:
       tag: latest

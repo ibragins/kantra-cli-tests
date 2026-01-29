@@ -1,0 +1,45 @@
+name: Cleanup Hub Instance
+description: Stop and cleanup hub instance
+
+runs:
+  using: composite
+  steps:
+    - name: Stop hub process
+      if: always()
+      shell: bash
+      run: |
+        echo "Stopping hub instance..."
+        if [ -f /tmp/hub.pid ]; then
+          HUB_PID=$(cat /tmp/hub.pid)
+          if ps -p $HUB_PID > /dev/null 2>&1; then
+            echo "Killing hub process $HUB_PID"
+            kill $HUB_PID || true
+            sleep 2
+            # Force kill if still running
+            if ps -p $HUB_PID > /dev/null 2>&1; then
+              echo "Force killing hub process $HUB_PID"
+              kill -9 $HUB_PID || true
+            fi
+          else
+            echo "Hub process $HUB_PID not running"
+          fi
+        else
+          echo "No hub PID file found"
+        fi
+
+    - name: Show hub logs on failure
+      if: failure()
+      shell: bash
+      run: |
+        echo "============================================"
+        echo "Hub Logs"
+        echo "============================================"
+        cat /tmp/hub.log || echo "No hub logs found"
+
+    - name: Cleanup hub files
+      if: always()
+      shell: bash
+      run: |
+        echo "Cleaning up hub files..."
+        rm -f /tmp/hub.pid /tmp/hub.db /tmp/hub.log || true
+        rm -rf /tmp/tackle2-hub || true
