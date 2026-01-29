@@ -13,8 +13,8 @@ on:
 
 jobs:
   test-suite:
-    # TEMPORARY: Use current branch for PR testing - REVERT to @main AFTER TESTING
-    uses: konveyor/kantra-cli-tests/.github/workflows/test-suite.yaml@create_hub_instance_for_ccm_tests
+    # TEMPORARY: Use fork repository for PR testing - REVERT to konveyor/kantra-cli-tests/.github/workflows/test-suite.yaml@main AFTER TESTING
+    uses: sshveta/kantra-cli-tests/.github/workflows/test-suite.yaml@create_hub_instance_for_ccm_tests
     secrets: inherit
     with:
       tag: latest
