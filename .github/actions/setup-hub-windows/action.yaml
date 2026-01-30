@@ -50,16 +50,15 @@ runs:
         GOPATH_UNIX=$(cygpath -u "$(go env GOPATH)")
         export PATH="$GOPATH_UNIX/bin:$PATH"
 
+        # Enable Go modules
+        export GO111MODULE=on
+
         # Install controller-gen
         go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5
 
-        # Get actual Go packages from the module (remove CRLF, convert newlines to spaces)
-        echo "Discovering Go packages..."
-        PACKAGES=$(go list ./... | tr -d '\r' | tr '\n' ' ')
-        echo "Found packages: $PACKAGES"
-
-        # Run code generation with actual Go package paths
-        controller-gen object:headerFile=./internal/generated/boilerplate paths="$PACKAGES"
+        # Run code generation
+        echo "Running controller-gen..."
+        controller-gen object:headerFile=./internal/generated/boilerplate.go.txt paths=./...
 
     - name: Build hub
       shell: bash
