@@ -54,7 +54,7 @@ runs:
         export GO111MODULE=on
 
         # Install controller-gen
-        go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5
+        go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.10.0
 
         # Run code generation
         echo "Running controller-gen..."
