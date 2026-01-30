@@ -53,9 +53,9 @@ runs:
         # Install controller-gen
         go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5
 
-        # Get actual Go packages from the module
+        # Get actual Go packages from the module (remove CRLF, convert newlines to spaces)
         echo "Discovering Go packages..."
-        PACKAGES=$(go list ./...)
+        PACKAGES=$(go list ./... | tr -d '\r' | tr '\n' ' ')
         echo "Found packages: $PACKAGES"
 
         # Run code generation with actual Go package paths
