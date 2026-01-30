@@ -52,8 +52,8 @@ runs:
         # Install controller-gen
         go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5
 
-        # Run code generation with Unix-style paths
-        controller-gen object:headerFile="$HUB_DIR/internal/generated/boilerplate" paths="$HUB_DIR/..."
+        # Run code generation with RELATIVE paths (required for controller-gen)
+        controller-gen object:headerFile=./internal/generated/boilerplate paths=./...
 
     - name: Build hub
       shell: bash
