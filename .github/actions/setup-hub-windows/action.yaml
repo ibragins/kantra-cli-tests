@@ -37,17 +37,19 @@ runs:
     - name: Generate code
       shell: bash
       run: |
-        cd "$RUNNER_TEMP/tackle2-hub"
-        echo "Generating code..."
+        HUB_DIR="$RUNNER_TEMP/tackle2-hub"
+        cd "$HUB_DIR"
+        echo "Generating code in $(pwd)..."
 
         # Fix GOPATH for Git Bash on Windows
-        if [ -n "$GOPATH" ]; then
-          export PATH="$(cygpath -u "$GOPATH")/bin:$PATH"
-        fi
+        GOPATH_UNIX=$(cygpath -u "$(go env GOPATH)")
+        export PATH="$GOPATH_UNIX/bin:$PATH"
 
-        # Run code generation
+        # Install controller-gen
         go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5
-        controller-gen object:headerFile="./internal/generated/boilerplate" paths="./..."
+
+        # Run code generation with absolute path
+        controller-gen object:headerFile="$HUB_DIR/internal/generated/boilerplate" paths="$HUB_DIR/..."
 
     - name: Build hub
       shell: bash
