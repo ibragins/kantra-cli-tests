@@ -83,8 +83,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup Hub Instance (Windows)
-      uses: ./.github/actions/setup-hub-windows
+    # NOTE: Hub setup not supported on Windows
 
     - name: Windows container-less tests
       uses: ./.github/actions/tests-windows-containerless
@@ -92,9 +91,6 @@ jobs:
         tier: ${{ inputs.tier }}
         maven_token: ${{ secrets.GH_TOKEN }}
 
-    - name: Cleanup Hub Instance
-      if: always()
-      uses: ./.github/actions/cleanup-hub
 
   tests-linux-containerless:
     runs-on: ubuntu-latest
