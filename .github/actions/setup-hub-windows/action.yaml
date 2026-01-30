@@ -31,18 +31,19 @@ runs:
     - name: Clone tackle2-hub
       shell: bash
       run: |
-        # Convert to Unix path for consistency
-        RUNNER_TEMP_UNIX=$(cygpath -u "$RUNNER_TEMP")
         echo "Cloning tackle2-hub from ${{ inputs.hub_repo }}..."
-        git clone --depth 1 --branch ${{ inputs.hub_branch }} ${{ inputs.hub_repo }} "$RUNNER_TEMP_UNIX/tackle2-hub"
+        # Use Windows path directly - Git Bash handles mixed separators fine
+        git clone --depth 1 --branch ${{ inputs.hub_branch }} ${{ inputs.hub_repo }} "$RUNNER_TEMP/tackle2-hub"
+
+        # Verify clone succeeded
+        echo "Clone completed. Directory contents:"
+        ls -la "$RUNNER_TEMP/tackle2-hub" | head -10
 
     - name: Generate code
       shell: bash
       run: |
-        # Convert all paths to Unix format for Git Bash
-        RUNNER_TEMP_UNIX=$(cygpath -u "$RUNNER_TEMP")
-        HUB_DIR="$RUNNER_TEMP_UNIX/tackle2-hub"
-        cd "$HUB_DIR"
+        # Use Windows path for cd (controller-gen is a Windows binary)
+        cd "$RUNNER_TEMP/tackle2-hub"
         echo "Generating code in $(pwd)..."
 
         # Fix GOPATH for Git Bash on Windows
@@ -52,8 +53,13 @@ runs:
         # Install controller-gen
         go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5
 
-        # Run code generation with RELATIVE paths (required for controller-gen)
-        controller-gen object:headerFile=./internal/generated/boilerplate paths=./...
+        # Get actual Go packages from the module
+        echo "Discovering Go packages..."
+        PACKAGES=$(go list ./...)
+        echo "Found packages: $PACKAGES"
+
+        # Run code generation with actual Go package paths
+        controller-gen object:headerFile=./internal/generated/boilerplate paths="$PACKAGES"
 
     - name: Build hub
       shell: bash
