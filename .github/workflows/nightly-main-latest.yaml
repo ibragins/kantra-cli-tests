@@ -10,4 +10,4 @@ jobs:
     secrets: inherit
     with:
       tag: latest
-      tier: TIER0
+      tier: all
