@@ -39,7 +39,7 @@ runs:
       pip install -r requirements.txt
       mkdir ${{ github.workspace }}\report
 
-  - name: Run TIER0 analysis test
+  - name: Run tests
     uses: nick-fields/retry@v3
     with:
       timeout_minutes: 20
@@ -51,7 +51,7 @@ runs:
         set PROJECT_PATH=${{ github.workspace }}
         set GIT_PASSWORD=${{ inputs.maven_token }}
 
-        pytest -s tests/analysis/java/test_tier0.py
+        if "${{ inputs.tier }}"=="TIER0" (pytest -s tests/analysis/java/test_tier0.py) else (pytest -s tests/)
 
   - name: Save analysis output
     uses: actions/upload-artifact@v4
