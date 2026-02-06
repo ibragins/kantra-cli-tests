@@ -1,0 +1,139 @@
+name: CLI test suite - Java containerless
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        required: false
+        type: string
+        default: quay.io/konveyor/kantra
+      tag:
+        required: false
+        type: string
+        default: latest
+      test_path:
+        required: false
+        type: string
+        default: tests/analysis/java
+    secrets:
+      GH_TOKEN:
+        required: false
+
+jobs:
+  make-kantra-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract kantra files from images
+        shell: bash
+        run: |
+          export KANTRA_DIR=.kantra
+          mkdir $KANTRA_DIR
+          docker rmi ${{ inputs.image }}:${{ inputs.tag }} 2>/dev/null || true
+          docker pull ${{ inputs.image }}:${{ inputs.tag }}
+          docker create --name kantra-download ${{ inputs.image }}:${{ inputs.tag }}
+          docker cp kantra-download:/usr/local/bin/kantra $KANTRA_DIR/kantra
+          docker cp kantra-download:/usr/local/bin/windows-kantra $KANTRA_DIR/windows-kantra.exe
+          docker cp kantra-download:/usr/local/bin/darwin-kantra $KANTRA_DIR/darwin-kantra
+          docker cp kantra-download:/jdtls $KANTRA_DIR/jdtls
+          docker cp kantra-download:/bin/fernflower.jar $KANTRA_DIR/fernflower.jar
+          docker cp kantra-download:/usr/local/static-report $KANTRA_DIR/static-report
+          docker cp kantra-download:/opt/rulesets $KANTRA_DIR/rulesets
+          docker cp kantra-download:/usr/local/etc/maven.default.index $KANTRA_DIR/maven.default.index
+          docker cp kantra-download:/usr/local/etc/maven-index.txt $KANTRA_DIR/maven-index.txt
+          ls -l $KANTRA_DIR
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kantra-bundle
+          if-no-files-found: error
+          include-hidden-files: true
+          path: .kantra
+
+  tests-linux-containerless:
+    runs-on: ubuntu-latest
+    needs: make-kantra-bundle
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Hub Instance
+        uses: ./.github/actions/setup-hub
+
+      - name: Linux container-less tests
+        uses: ./.github/actions/tests-linux-containerless
+        with:
+          test_path: ${{ inputs.test_path }}
+          maven_token: ${{ secrets.GH_TOKEN }}
+
+      - name: Cleanup Hub Instance
+        if: always()
+        uses: ./.github/actions/cleanup-hub
+
+  tests-windows-containerless:
+    runs-on: windows-latest
+    needs: make-kantra-bundle
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Windows container-less tests
+        uses: ./.github/actions/tests-windows-containerless
+        with:
+          maven_token: ${{ secrets.GH_TOKEN }}
+
+  make-kantra-bundle-arm64:
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - name: Extract kantra files from arm64 images
+        shell: bash
+        run: |
+          brew install docker || true
+          export KANTRA_DIR=.kantra
+          mkdir $KANTRA_DIR
+          docker rmi ${{ inputs.image }}:${{ inputs.tag }} 2>/dev/null || true
+          docker pull ${{ inputs.image }}:${{ inputs.tag }}
+          docker create --name kantra-download ${{ inputs.image }}:${{ inputs.tag }}
+          docker cp kantra-download:/usr/local/bin/kantra $KANTRA_DIR/kantra
+          docker cp kantra-download:/usr/local/bin/windows-kantra $KANTRA_DIR/windows-kantra.exe
+          docker cp kantra-download:/usr/local/bin/darwin-kantra $KANTRA_DIR/darwin-kantra
+          docker cp kantra-download:/jdtls $KANTRA_DIR/jdtls
+          docker cp kantra-download:/bin/fernflower.jar $KANTRA_DIR/fernflower.jar
+          docker cp kantra-download:/usr/local/static-report $KANTRA_DIR/static-report
+          docker cp kantra-download:/opt/rulesets $KANTRA_DIR/rulesets
+          docker cp kantra-download:/usr/local/etc/maven.default.index $KANTRA_DIR/maven.default.index
+          docker cp kantra-download:/usr/local/etc/maven-index.txt $KANTRA_DIR/maven-index.txt
+          ls -l $KANTRA_DIR
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kantra-bundle-arm64
+          if-no-files-found: error
+          include-hidden-files: true
+          path: .kantra
+
+  tests-linux-containerless-arm64:
+    runs-on: ubuntu-22.04-arm
+    needs: make-kantra-bundle-arm64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Linux ARM64 container-less tests
+        uses: ./.github/actions/tests-linux-containerless-arm64
+        with:
+          maven_token: ${{ secrets.GH_TOKEN }}
+
+  tests-mac-containerless-arm64:
+    runs-on: macos-latest
+    needs: make-kantra-bundle-arm64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Mac container-less tests
+        uses: ./.github/actions/tests-mac-containerless-arm64
+        with:
+          test_path: ${{ inputs.test_path }}
+          maven_token: ${{ secrets.GH_TOKEN }}

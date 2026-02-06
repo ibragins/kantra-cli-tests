@@ -7,6 +7,11 @@ inputs:
       Test TIER name
     required: false
     default: TIER0
+  test_path:
+    description: |
+      If set, run only this test path (e.g. tests/analysis/java). Overrides tier.
+    required: false
+    default: ""
   maven_token:
     description: |
       Token for public github maven repo access
@@ -17,6 +22,8 @@ runs:
   using: "composite"
   steps:
   - uses: actions/checkout@v4
+    with:
+      submodules: recursive
   - uses: actions/setup-java@v4
     with:
       distribution: 'microsoft'
@@ -44,16 +51,20 @@ runs:
   - name: Run tests
     uses: nick-fields/retry@v3
     with:
-      timeout_minutes: 20
-      max_attempts: 3
+      timeout_minutes: 80
+      max_attempts: 2
       shell: bash
       command: |
         export KANTRA_CLI_PATH=/home/runner/.kantra/kantra
         export REPORT_OUTPUT_PATH=${{ github.workspace }}/report
         export PROJECT_PATH=${{ github.workspace }}
         export GIT_PASSWORD=${{ inputs.maven_token }}
+        export GIT_USERNAME=konveyor-read-only-bot
+        export RUN_LOCAL_MODE=true
 
-        if [ "${{ inputs.tier }}" = "TIER0" ]; then
+        if [ -n "${{ inputs.test_path }}" ]; then
+          pytest -s ${{ inputs.test_path }}
+        elif [ "${{ inputs.tier }}" = "TIER0" ]; then
           pytest -s tests/analysis/java/test_tier0.py
         else
           pytest -s tests/

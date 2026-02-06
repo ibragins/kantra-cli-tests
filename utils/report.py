@@ -34,7 +34,7 @@ def get_json_from_report_output_js_file(return_first = True, **kwargs):
 
 def get_dict_from_output_yaml_file(filename = "output.yaml", **kwargs):
     """
-        Loads and returns a JSON from the output.js file of the report
+        Loads and returns data from the output.yaml file of the report.
 
         Args:
             filename: Which filename should be used. Useful in case of bulk analysis as filename can differ
@@ -43,10 +43,9 @@ def get_dict_from_output_yaml_file(filename = "output.yaml", **kwargs):
                     the function will use the value of the 'REPORT_OUTPUT_PATH' environment variable.
 
         Returns:
-            JSON data
+            Parsed YAML data (typically a list of rulesets)
 
         """
-
     report_path = kwargs.get('report_path', os.getenv(constants.REPORT_OUTPUT_PATH))
 
     with open(os.path.join(report_path, filename), encoding='utf-8') as file:
@@ -54,13 +53,20 @@ def get_dict_from_output_yaml_file(filename = "output.yaml", **kwargs):
     return data
 
 
+def _get_rulesets_from_output_yaml(**kwargs):
+    """Load output.yaml from the report dir and return a list of rulesets."""
+    data = get_dict_from_output_yaml_file(**kwargs)
+    if isinstance(data, list):
+        return data
+    return data.get('rulesets', [])
+
+
 def assert_non_empty_report(report_path):
     """
     Asserts that the story points value in the report file is a number >= 0
 
     Args:
-        report_path (str): The path to the report file. If not provided,
-        the function will use the value of the 'REPORT_OUTPUT_PATH' environment variable.
+        report_path (str): The path to the report file.
 
     Raises:
         AssertionError: If the report looks empty or is missing.
@@ -69,56 +75,67 @@ def assert_non_empty_report(report_path):
         None.
 
     """
-    report_data = get_json_from_report_output_js_file(report_path=report_path)
+    rulesets = _get_rulesets_from_output_yaml(report_path=report_path)
 
     some_incidents = False
-
-    for rule in report_data['rulesets']:
-        violations = rule.get('violations', {})
-
-        for violation in violations.values():
-            if 'incidents' in violation:
+    for rule in rulesets:
+        violations = rule.get('violations') or {}
+        violation_list = violations.values() if isinstance(violations, dict) else violations
+        for violation in violation_list:
+            if isinstance(violation, dict) and 'incidents' in violation:
                 some_incidents = True
                 break
 
     assert os.path.exists(os.path.join(report_path, "static-report", "index.html")), "Missing index.html file in static-report under " + report_path
-    assert some_incidents, "Missing incidents in static-report js data file"
+    assert some_incidents, "Missing incidents in report output"
 
 
-def assert_story_points_from_report_file():
+def assert_story_points_from_report_file(**kwargs):
     """
-    Asserts that the story points value in the report file is a number >= 0
+    Asserts that the story points value in the report file is at least min_story_points.
+    Reads from output.yaml in the report dir. Default is to require >= 1 story point.
 
     Args:
         **kwargs: Optional keyword arguments.
             report_path (str): The path to the report file. If not provided,
                 the function will use the value of the 'REPORT_OUTPUT_PATH' environment variable.
+            min_story_points (int): Minimum required story points. Use 0 only for
+                tests that are expected to produce no violations.
 
     Raises:
-        AssertionError: If the story points in the report file do not match the provided value.
+        AssertionError: If the story points in the report file do not match the provided value. For example, if the value is below the minimum required.
 
     Returns:
         None.
 
     """
-    report_data = get_json_from_report_output_js_file()
+    min_story_points = kwargs.pop('min_story_points', 1)
+    rulesets = _get_rulesets_from_output_yaml(**kwargs)
 
     story_points = -1
-    for rule in report_data['rulesets']:
-        violations = rule.get('violations', {})
-
-        for violation in violations.values():
-            if 'incidents' in violation and 'effort' in violation:
+    for rule in rulesets:
+        violations = rule.get('violations') or {}
+        violation_list = violations.values() if isinstance(violations, dict) else violations
+        for violation in violation_list:
+            if isinstance(violation, dict) and 'incidents' in violation and 'effort' in violation:
                 if story_points == -1:
                     story_points = 0
-                story_points += len(violation['incidents']) * violation['effort']
+                effort = violation['effort']
+                if effort is not None and effort >= 0:
+                    story_points += len(violation['incidents']) * effort
 
-    assert story_points >= 0, "Non valid value found in Story Points from Report: " + str(story_points)
+    if story_points == -1:
+        story_points = 0 
+    story_points = max(0, story_points)
+    assert story_points >= min_story_points, (
+        f"Story points from report ({story_points}) are below minimum required ({min_story_points})"
+    )
 
 
-def assert_insights_from_report_file():
+def assert_insights_from_report_file(**kwargs):
     """
     Asserts that the Insights occurrence count in the report file is > 0.
+    Reads from output.yaml in the report dir.
 
     Args:
         **kwargs: Optional keyword arguments.
@@ -132,14 +149,14 @@ def assert_insights_from_report_file():
         None.
 
     """
-    report_data = get_json_from_report_output_js_file()
+    rulesets = _get_rulesets_from_output_yaml(**kwargs)
 
     occurrences = -1
-    for rule in report_data['rulesets']:
-        insights = rule.get('insights', {})
-
-        for insight in insights.values():
-            if 'incidents' in insight:
+    for rule in rulesets:
+        insights = rule.get('insights') or {}
+        insight_list = insights.values() if isinstance(insights, dict) else insights
+        for insight in insight_list:
+            if isinstance(insight, dict) and 'incidents' in insight:
                 if occurrences == -1:
                     occurrences = 0
                 occurrences += len(insight['incidents'])

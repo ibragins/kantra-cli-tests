@@ -5,9 +5,9 @@ on:
     - cron: '0 1 * * *'
 
 jobs:
-  test-suite:
-    uses: konveyor/kantra-cli-tests/.github/workflows/test-suite.yaml@main
+  test-suite-containerless:
+    # TODO: Add other provider tests
+    uses: ./.github/workflows/test-suite-java-containerless.yaml
     secrets: inherit
     with:
       tag: latest
-      tier: ALL

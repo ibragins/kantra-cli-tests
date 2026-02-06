@@ -12,9 +12,10 @@ on:
 
 jobs:
   test-suite:
-    uses: konveyor/kantra-cli-tests/.github/workflows/test-suite.yaml@main
+    uses: ./.github/workflows/test-suite-java-containerless.yaml
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
     with:
       tag: latest
-      tier: TIER0
+      # TODO: Add other provider tests
+      test_path: tests/analysis/java

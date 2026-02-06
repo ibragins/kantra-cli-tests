@@ -9,6 +9,18 @@ from functools import wraps
 
 from utils import constants
 
+__all__ = [
+    "extract_zip_to_temp_dir",
+    "run_containerless_parametrize",
+    "_ruleset_contains_rule",
+    "_get_violation_by_rule_id",
+    "_get_rulesets",
+    "verify_triggered_rules",
+    "extract_rules",
+    "verify_triggered_yaml_rules",
+    "extract_name_and_violations_from_dictionary",
+]
+
 
 @contextmanager
 def extract_zip_to_temp_dir(application_path):
@@ -30,10 +42,15 @@ def extract_zip_to_temp_dir(application_path):
     yield tempdir.name
 
 def run_containerless_parametrize(func):
-    args_list = [{"--run-local=true": None}]  # Always include local mode
-
-    if platform.system().lower() != "windows":
-        args_list.append({"--run-local=false": None})  # Add container mode only if not Windows
+    run_local_mode = os.getenv("RUN_LOCAL_MODE")
+    if run_local_mode == "true":
+        args_list = [{"--run-local=true": None}]
+    elif run_local_mode == "false":
+        args_list = [{"--run-local=false": None}] if platform.system().lower() != "windows" else []
+    else:
+        args_list = [{"--run-local=true": None}]  # Always include local mode
+        if platform.system().lower() != "windows":
+            args_list.append({"--run-local=false": None})  # Add container mode only if not Windows
 
     @pytest.mark.parametrize(
         "additional_args",
@@ -45,6 +62,41 @@ def run_containerless_parametrize(func):
         return func(*args, **kwargs)
 
     return wrapper
+
+def _ruleset_contains_rule(ruleset, rule_id):
+    """True if ruleset has violations for rule_id."""
+    violations = ruleset.get('violations')
+    if violations is None:
+        return False
+    if isinstance(violations, dict):
+        return rule_id in violations
+    if isinstance(violations, list):
+        return any(
+            v.get('ruleID') == rule_id or v.get('ruleId') == rule_id or v.get('rule') == rule_id
+            for v in violations
+        )
+    return False
+
+
+def _get_violation_by_rule_id(ruleset, rule_id):
+    """Return the violation object for rule_id from a ruleset."""
+    violations = ruleset.get('violations')
+    if not violations:
+        return None
+    if isinstance(violations, dict):
+        return violations.get(rule_id)
+    for v in violations:
+        if v.get('ruleID') == rule_id or v.get('ruleId') == rule_id or v.get('rule') == rule_id:
+            return v
+    return None
+
+
+def _get_rulesets(report_data):
+    """Return list of rulesets from report_data."""
+    if isinstance(report_data, list):
+        return report_data  
+    return report_data.get('rulesets', [])
+
 
 def verify_triggered_rules(report_data, rule_id_list, expected_unmatched_rules = False):
     """
@@ -58,10 +110,13 @@ def verify_triggered_rules(report_data, rule_id_list, expected_unmatched_rules =
 
     """
 
+    rulesets = _get_rulesets(report_data)
     errors = []
     for rule_id in rule_id_list:
-        # print(f"Checking rule: {rule_id}")
-        ruleset = next((item for item in report_data['rulesets'] if rule_id in item.get('violations', {})), None)
+        ruleset = next(
+            (item for item in rulesets if _ruleset_contains_rule(item, rule_id)),
+            None,
+        )
 
         if ruleset is None:
             errors.append(f"Error for rule ID '{rule_id}': Ruleset property not found in output.")
@@ -73,9 +128,7 @@ def verify_triggered_rules(report_data, rule_id_list, expected_unmatched_rules =
         if len(ruleset.get('unmatched', [])) != 0 and not expected_unmatched_rules:
             errors.append(f"Error for rule ID '{rule_id}': Custom Rule was unmatched. Unmatched rules: {ruleset.get('unmatched', [])}. Expected unmatched: {expected_unmatched_rules}")
 
-        if 'violations' not in ruleset:
-            errors.append(f"Error for rule ID '{rule_id}': Custom rules didn't trigger any violation.")
-        elif rule_id not in ruleset['violations']:
+        if not _ruleset_contains_rule(ruleset, rule_id):
             errors.append(f"Error for rule ID '{rule_id}': The test rule triggered no violations for this specific rule ID.")
 
     if errors:

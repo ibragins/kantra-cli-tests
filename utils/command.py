@@ -1,6 +1,21 @@
 import os
+import subprocess
+import sys
 
 from utils import constants
+
+# Use PTY on Unix so the child's stdout is line-buffered and we capture the final analysis message
+_USE_PTY = sys.platform != 'win32'
+
+
+def _safe_stdout_write(line):
+    """Write line to stdout; on Windows cp1252 replace unencodable chars to avoid UnicodeEncodeError."""
+    try:
+        sys.stdout.write(line)
+    except UnicodeEncodeError:
+        enc = getattr(sys.stdout, 'encoding', None) or 'utf-8'
+        sys.stdout.buffer.write(line.encode(enc, errors='replace'))
+
 
 def get_cli_path():
     value = os.getenv(constants.KANTRA_CLI_PATH)
@@ -65,6 +80,10 @@ def build_analysis_command(binary_name, sources, targets, is_bulk=False, output_
     if not with_deps:
         command += ' -m source-only'
 
+    run_local_env = os.getenv('RUN_LOCAL_MODE')
+    if run_local_env in ('true', 'false') and not any('run-local' in str(k) for k in kwargs):
+        command += ' --run-local=' + run_local_env
+
     for key, value in kwargs.items():
         if '--' not in key:
             key = '--' + key
@@ -75,6 +94,79 @@ def build_analysis_command(binary_name, sources, targets, is_bulk=False, output_
 
     print(command)
     return command
+
+
+def run_command_stream_output(command, shell=True, check=True):
+    """
+    Stream stdout/stderr to the current process and return the combined output for assertions.
+    Raises subprocess.CalledProcessError if check=True and the process exits non-zero.
+    """
+    if _USE_PTY:
+        return _run_command_stream_output_pty(command, shell=shell, check=check)
+    return _run_command_stream_output_pipe(command, shell=shell, check=check)
+
+
+def _run_command_stream_output_pipe(command, shell=True, check=True):
+    """Capture via pipe (used on Windows)."""
+    proc = subprocess.Popen(
+        command,
+        shell=shell,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding='utf-8',
+        errors='replace',
+    )
+    lines = []
+    for line in proc.stdout:
+        _safe_stdout_write(line)
+        sys.stdout.flush()
+        lines.append(line)
+    proc.wait()
+    output = ''.join(lines)
+    if check and proc.returncode != 0:
+        raise subprocess.CalledProcessError(proc.returncode, command, output)
+    return output
+
+
+def _run_command_stream_output_pty(command, shell=True, check=True):
+    """Capture via PTY on Unix so child stdout is line-buffered for final output."""
+    import pty
+    master, slave = pty.openpty()
+    try:
+        proc = subprocess.Popen(
+            command,
+            shell=shell,
+            stdin=subprocess.DEVNULL,
+            stdout=slave,
+            stderr=slave,
+        )
+    except Exception:
+        os.close(slave)
+        os.close(master)
+        raise
+    os.close(slave)
+    chunks = []
+    try:
+        while True:
+            try:
+                data = os.read(master, 4096)
+            except OSError:
+                break
+            if not data:
+                break
+            decoded = data.decode('utf-8', errors='replace')
+            _safe_stdout_write(decoded)
+            sys.stdout.flush()
+            chunks.append(decoded)
+    finally:
+        os.close(master)
+    proc.wait()
+    output = ''.join(chunks)
+    if check and proc.returncode != 0:
+        raise subprocess.CalledProcessError(proc.returncode, command, output)
+    return output
+
 
 def build_discovery_command(binary_name,  **kwargs):
     """

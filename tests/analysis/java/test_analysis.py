@@ -1,12 +1,11 @@
 import os
-import subprocess
 
 import pytest
 from deepdiff import DeepDiff
 
 from fixtures.analysis import ci_data
 from utils import constants
-from utils.command import build_analysis_command
+from utils.command import build_analysis_command, run_command_stream_output
 from utils.output import normalize_output
 from utils.report import assert_story_points_from_report_file, get_dict_from_output_yaml_file
 
@@ -26,9 +25,9 @@ def test_bvp_issue_analyzer_901(application_data):
         with_deps=application_data["withDeps"]
     )
 
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+    output = run_command_stream_output(command)
 
-    assert 'generating static report' in output.lower()
+    assert 'analysis complete' in output.lower(), "Expected 'Analysis complete!' in Kantra output"
     assert_story_points_from_report_file()
 
     # Parsing report and reference
@@ -39,6 +38,11 @@ def test_bvp_issue_analyzer_901(application_data):
     reference_data = get_dict_from_output_yaml_file(
         filename="output.yaml",
         report_path=reference_data_path
+    )
+
+    reference_data = normalize_output(
+        reference_data,
+        os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'applications', application_data['filename'])
     )
 
     diff = DeepDiff(report_data, reference_data, ignore_order=True)

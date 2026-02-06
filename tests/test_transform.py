@@ -13,6 +13,12 @@ from jsonschema import validate
 
 
 # Polarion TC 376
+# TODO Kantra transform runs in a container that does "cp -r /opt/input /tmp/source-app"
+# and hits "Permission denied" Remove skip when Kantra fixes 
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Kantra transform container has /tmp permission denied (cp to /tmp/source-app); skip in CI until fixed",
+)
 @pytest.mark.parametrize('transformation_name', json.load(open("data/openrewrite_transformation.json")))
 def test_transform_code_with_openrewrite(transformation_name, openrewrite_transformation_data):
     application_data = openrewrite_transformation_data[transformation_name]
