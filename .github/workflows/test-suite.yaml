@@ -34,6 +34,8 @@ jobs:
       run: |
         export KANTRA_DIR=.kantra
         mkdir $KANTRA_DIR
+        docker rmi ${{ inputs.image }}:${{ inputs.tag }} 2>/dev/null || true
+        docker pull ${{ inputs.image }}:${{ inputs.tag }}
         docker create --name kantra-download ${{ inputs.image }}:${{ inputs.tag }}
         docker cp kantra-download:/usr/local/bin/kantra $KANTRA_DIR/kantra
         docker cp kantra-download:/usr/local/bin/windows-kantra $KANTRA_DIR/windows-kantra
@@ -43,6 +45,7 @@ jobs:
         docker cp kantra-download:/usr/local/static-report $KANTRA_DIR/static-report
         docker cp kantra-download:/opt/rulesets $KANTRA_DIR/rulesets
         docker cp kantra-download:/usr/local/etc/maven.default.index $KANTRA_DIR/maven.default.index
+        docker cp kantra-download:/usr/local/etc/maven-index.txt $KANTRA_DIR/maven-index.txt
         ls -l $KANTRA_DIR
     - uses: actions/upload-artifact@v4
       with:
@@ -60,6 +63,8 @@ jobs:
         brew install docker || true
         export KANTRA_DIR=.kantra
         mkdir $KANTRA_DIR
+        docker rmi ${{ inputs.image }}:${{ inputs.tag }} 2>/dev/null || true
+        docker pull ${{ inputs.image }}:${{ inputs.tag }}
         docker create --name kantra-download ${{ inputs.image }}:${{ inputs.tag }}
         docker cp kantra-download:/usr/local/bin/kantra $KANTRA_DIR/kantra
         docker cp kantra-download:/usr/local/bin/windows-kantra $KANTRA_DIR/windows-kantra
@@ -69,6 +74,7 @@ jobs:
         docker cp kantra-download:/usr/local/static-report $KANTRA_DIR/static-report
         docker cp kantra-download:/opt/rulesets $KANTRA_DIR/rulesets
         docker cp kantra-download:/usr/local/etc/maven.default.index $KANTRA_DIR/maven.default.index
+        docker cp kantra-download:/usr/local/etc/maven-index.txt $KANTRA_DIR/maven-index.txt
         ls -l $KANTRA_DIR
     - uses: actions/upload-artifact@v4
       with:

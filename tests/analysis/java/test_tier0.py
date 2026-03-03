@@ -1,12 +1,11 @@
 import json
 import os
 import shutil
-import subprocess
 
 import pytest
 
 from utils import constants
-from utils.command import build_analysis_command
+from utils.command import build_analysis_command, run_command_stream_output
 from utils.manage_maven_credentials import get_default_token
 from utils.report import assert_non_empty_report
 from utils.output import assert_analysis_output_violations, assert_analysis_output_dependencies
@@ -61,7 +60,7 @@ def test_analysis(tc_name, java_analysis_data):
         output_path=output_dir,
         settings=settings_path
     )
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+    output = run_command_stream_output(command)
 
     # Check analysis results (deeply)
     expected_output_dir = os.path.join(project_path, "data", "expected", "java_analysis", tc_name)

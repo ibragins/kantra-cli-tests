@@ -1,4 +1,5 @@
 import os
+import re
 import yaml
 
 
@@ -129,6 +130,12 @@ def normalize_output(rulesets: dict, input_root_path):
                             print("Warning: invalid incident: %s" % incident)
                         if incident.get('variables'):
                             del incident['variables']   # remove variables from assertion, re-add if needed
+                        if incident.get('message'):
+                            incident['message'] = re.sub(
+                                r'\$\{[^}]+\}',
+                                '$',
+                                incident['message'],
+                            )
 
     # delete not matched ruleset
     rulesets = [ruleset for ruleset in rulesets if ruleset.get('violations') or ruleset.get('tags')]

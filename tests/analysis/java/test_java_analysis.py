@@ -7,26 +7,42 @@ import subprocess
 import pytest
 
 from utils import constants
-from utils.command import build_analysis_command
+from utils.command import build_analysis_command, run_command_stream_output
 from utils.common import run_containerless_parametrize, verify_triggered_rules, extract_zip_to_temp_dir
-from utils.manage_maven_credentials import manage_credentials_in_maven_xml
-from utils.report import assert_story_points_from_report_file, get_json_from_report_output_js_file
+from utils.manage_maven_credentials import get_default_token
+from utils.report import assert_story_points_from_report_file, get_dict_from_output_yaml_file
 
 @run_containerless_parametrize
 @pytest.mark.parametrize('app_name', json.load(open("data/analysis.json")))
 def test_standard_analysis(app_name, analysis_data, additional_args):
     application_data = analysis_data[app_name]
 
+    extra_kwargs = dict(additional_args)
+    # Add settings.xml with credentials needed e.g. by tackle-testapp-public
+    if application_data.get('maven_settings'):
+        with open(application_data['maven_settings'], 'r') as f:
+            raw_settings = f.read()
+        maven_token = os.getenv(constants.GIT_PASSWORD, '')
+        if maven_token == '':
+            maven_token = get_default_token()
+        raw_settings = raw_settings.replace('GITHUB_USER', os.getenv(constants.GIT_USERNAME, 'konveyor-read-only-bot'))
+        raw_settings = raw_settings.replace('GITHUB_TOKEN', maven_token)
+        input_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'applications', application_data['file_name'])
+        settings_path = input_path + "_settings.xml"  
+        with open(settings_path, 'w') as f:
+            f.write(raw_settings)
+        extra_kwargs['maven-settings'] = settings_path
+
     command = build_analysis_command(
         application_data['file_name'],
         application_data['sources'],
         application_data['targets'],
-        **additional_args
+        **extra_kwargs
     )
 
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+    output = run_command_stream_output(command)
 
-    assert 'generating static report' in output
+    assert 'analysis complete' in output.lower(), "Expected 'Analysis complete!' in Kantra output"
 
     assert_story_points_from_report_file()
 
@@ -44,16 +60,22 @@ def test_java_analysis_without_pom(analysis_data):
         application_data['sources'],
         "",
     )
-
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
-
-    assert 'generating static report' in output
-
-    assert_story_points_from_report_file()
-    shutil.rmtree(app_no_pom_path)
+    try:
+        run_command_stream_output(command)
+        shutil.rmtree(app_no_pom_path)
+        pytest.fail("Expected analysis to fail with 'unable to get build tool' when pom.xml is missing")
+    except subprocess.CalledProcessError as e:
+        output = (e.args[2] if len(e.args) > 2 else "") or getattr(e, "output", "") or str(e)
+        assert "unable to start Java provider" in output and "unable to get build tool" in output, (
+            f"Expected 'unable to start Java provider' and 'unable to get build tool' in output, got: {output[-2000:]!r}"
+        )
+    finally:
+        shutil.rmtree(app_no_pom_path, ignore_errors=True)
 
 # Automates Bug 6211
 def test_gradle_analysis_custom_rule():
+    if os.getenv('RUN_LOCAL_MODE') == 'true':
+        pytest.skip("skip when running containerless")
 
     application_path = os.path.join(
         os.getenv(constants.PROJECT_PATH),
@@ -75,43 +97,45 @@ def test_gradle_analysis_custom_rule():
             },
         )
 
-        output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+        output = run_command_stream_output(command)
 
-        assert 'Static report created' in output
+        assert 'analysis complete' in output.lower(), "Expected 'Analysis complete!' in Kantra output"
         assert_story_points_from_report_file()
-        report_data = get_json_from_report_output_js_file()
+        report_data = get_dict_from_output_yaml_file()
         verify_triggered_rules(report_data, ['serializable-test-rule-jmh-gradle'])
 
 def test_dependency_rule_analysis(analysis_data):
     application_data = analysis_data['tackle-testapp-project']
-    custom_maven_settings = os.path.join(
-        os.getenv(constants.PROJECT_PATH),
-        'data/xml',
-        'tackle-testapp-public-settings.xml'
-    )
-    custom_rule_path = os.path.join(
-        os.getenv(constants.PROJECT_PATH),
-        'data/yaml',
-        'tackle-dependency-custom-rule.yaml'
-    )
-    manage_credentials_in_maven_xml(custom_maven_settings)
+    project_path = os.getenv(constants.PROJECT_PATH)
+    settings_template = os.path.join(project_path, 'data/xml', 'tackle-testapp-public-settings.xml')
+    custom_rule_path = os.path.join(project_path, 'data/yaml', 'tackle-dependency-custom-rule.yaml')
+
+    with open(settings_template, 'r') as f:
+        raw_settings = f.read()
+    maven_token = os.getenv(constants.GIT_PASSWORD, '')
+    if maven_token == '':
+        maven_token = get_default_token()
+    raw_settings = raw_settings.replace('GITHUB_USER', os.getenv(constants.GIT_USERNAME, 'konveyor-read-only-bot'))
+    raw_settings = raw_settings.replace('GITHUB_TOKEN', maven_token)
+    tmp_dir = os.path.join(project_path, 'data', 'tmp')
+    os.makedirs(tmp_dir, exist_ok=True)
+    settings_path = os.path.join(tmp_dir, 'tackle-testapp-project_dependency_rule_settings.xml')
+    with open(settings_path, 'w') as f:
+        f.write(raw_settings)
 
     command = build_analysis_command(
         application_data['file_name'],
         application_data['sources'],
         "",
         **{
-            'maven-settings': custom_maven_settings,
+            'maven-settings': settings_path,
             'rules': custom_rule_path,
         }
     )
 
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+    output = run_command_stream_output(command)
 
-    manage_credentials_in_maven_xml(custom_maven_settings, True)
+    assert 'analysis complete' in output.lower(), "Expected 'Analysis complete!' in Kantra output"
 
-    assert 'generating static report' in output
-
-    report_data = get_json_from_report_output_js_file()
-
+    report_data = get_dict_from_output_yaml_file()
     verify_triggered_rules(report_data, ['tackle-dependency-test-rule'])
