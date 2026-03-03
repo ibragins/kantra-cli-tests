@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-from utils import constants
+from utils.common import get_hub_url, get_cli_path, get_project_path, get_report_path
 
 # Use PTY on Unix so the child's stdout is line-buffered and we capture the final analysis message
 _USE_PTY = sys.platform != 'win32'
@@ -16,22 +16,18 @@ def _safe_stdout_write(line):
         enc = getattr(sys.stdout, 'encoding', None) or 'utf-8'
         sys.stdout.buffer.write(line.encode(enc, errors='replace'))
 
-
-def get_cli_path():
-    value = os.getenv(constants.KANTRA_CLI_PATH)
-    if not value:
-        raise RuntimeError("KANTRA_CLI_PATH is not set")
-    return value
-
 def build_analysis_command(binary_name, sources, targets, is_bulk=False, output_path=None, settings=None, with_deps = True, **kwargs):
     """
         Builds a string for executing the "analyze" subcommand
 
         Args:
             binary_name (str): binary file of the application to be analyzed.
-            source (str): Source of the application.
-            target (str): Target for the application to migrate to.
+            sources (str): Array of sources of the application.
+            targets (str): Array of targets for the application to migrate to.
             is_bulk (bool): Defines if '--bulk' (true) or `--overwrite`(false) run is performed
+            with_deps (bool): Defines if source-only or source + dependencies analysis is performed
+            settings: If defined - custom maven file will be used for analysis
+            output_path: If defined - overrides default report output path
             **kwargs (str): Optional keyword arguments to be passed to Kantra as additional options.
                 this argument takes a dict, where each key is the argument, which can be passed with or without the '--'
 
@@ -41,12 +37,12 @@ def build_analysis_command(binary_name, sources, targets, is_bulk=False, output_
         Raises:
             Exception: If `binary_path` is not provided.
     """
-    kantra_path = os.getenv(constants.KANTRA_CLI_PATH)
+    kantra_path = get_cli_path()
 
     if output_path:
         report_path = output_path
     else:
-        report_path = os.getenv(constants.REPORT_OUTPUT_PATH)
+        report_path = get_report_path()
 
     if not binary_name:
         raise Exception('Binary path is required')
@@ -59,7 +55,7 @@ def build_analysis_command(binary_name, sources, targets, is_bulk=False, output_
     if os.path.isabs(binary_name):
         binary_path = binary_name
     else:
-        binary_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'applications', binary_name)
+        binary_path = os.path.join(get_project_path(), 'data', 'applications', binary_name)
 
     if not os.path.exists(binary_path):
         raise Exception("Input application `%s` does not exist" % binary_path)
@@ -183,7 +179,7 @@ def build_discovery_command(binary_name,  **kwargs):
         Raises:
             Exception: If `binary_path` is not provided.
     """
-    kantra_path = os.getenv(constants.KANTRA_CLI_PATH)
+    kantra_path = get_cli_path()
 
     if not binary_name:
         raise Exception('Binary path is required')
@@ -192,7 +188,7 @@ def build_discovery_command(binary_name,  **kwargs):
     if os.path.isabs(binary_name):
         binary_path = binary_name
     else:
-        binary_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'applications', binary_name)
+        binary_path = os.path.join(get_project_path(), 'data', 'applications', binary_name)
 
     if not os.path.exists(binary_path):
         raise Exception("Input application `%s` does not exist" % binary_path)
@@ -316,5 +312,100 @@ def build_asset_generation_command(input_file, chart_dir, output_dir=None, **kwa
 
         if value:
             command += '=' + value
+    print(command)
+    return command
+
+
+def build_central_config_login_command(hub_url, username, password, secure=False):
+    """
+    Builds a string for executing the "central config login" subcommand
+    Args:
+        hub_url: URL of the hub server.
+        username: username to log in to the hub
+        password: password to log in to the hub
+        secure: Set as false to ignore SSL certificate verification
+
+    Returns: Command to execute with the specified options and arguments.
+
+    """
+    kantra_path = get_cli_path()
+    if not secure:
+        print("Not secure connection")
+    return [kantra_path, 'config', 'login' , hub_url, username, password] + (['--insecure'] if not secure else [])
+
+
+def build_central_config_sync_command(app_url, profile_path=None, secure=True):
+    """
+    Builds a string for executing the "central config sync" subcommand
+    Args:
+        app_url: URL of the application to be synced.
+        secure: Set as false to ignore SSL certificate verification
+        profile_path (str): path to profile folder, if not specified - current location is used
+    Returns: Command to execute with the specified options and arguments.
+
+    """
+    kantra_path = get_cli_path()
+    command = [kantra_path, 'config', 'sync', '--url', app_url]
+    hub_url = get_hub_url()
+    if hub_url == "http://localhost:8080/hub":
+        command += ['--host', hub_url]
+    if profile_path:
+        command += ['--application-path=' + profile_path]
+    if not secure:
+        command += ['--insecure']
+    print(command)
+    return command
+
+
+def build_analysis_command_ccm(binary_name, profile_path=None, output_path=None, **kwargs):
+    """
+        Builds a string for executing the "analyze" subcommand
+
+        Args:
+            binary_name (str): binary file of the application to be analyzed.
+            profile_path (str): path to profile folder, if not specified - current location is used
+            output_path: If defined - overrides default report output path
+            **kwargs (str): Optional keyword arguments to be passed to Kantra as additional options.
+                this argument takes a dict, where each key is the argument, which can be passed with or without the '--'
+
+        Returns:
+            str: The full command to execute with the specified options and arguments.
+
+        Raises:
+            Exception: If `binary_path` is not provided.
+    """
+    kantra_path = get_cli_path()
+
+    if output_path:
+        report_path = output_path
+    else:
+        report_path = get_report_path()
+
+    if not binary_name:
+        raise Exception('Binary path is required')
+
+    run_type = '--overwrite'
+
+    if os.path.isabs(binary_name):
+        binary_path = binary_name
+    else:
+        binary_path = os.path.join(get_project_path(), 'data', 'applications', binary_name)
+
+    if not os.path.exists(binary_path):
+        raise Exception("Input application `%s` does not exist" % binary_path)
+
+    command = kantra_path + ' analyze ' + run_type + ' --log-level=500 --input ' + binary_path + ' --output ' + report_path
+
+    if profile_path:
+        command += f' --profile-dir {profile_path} '
+
+    for key, value in kwargs.items():
+        if '--' not in key:
+            key = '--' + key
+        command += ' ' + key
+
+        if value:
+            command += '=' + value
+
     print(command)
     return command

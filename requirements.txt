@@ -1,20 +1,24 @@
-attrs==22.2.0
-beautifulsoup4==4.11.1
-exceptiongroup==1.1.0
-iniconfig==2.0.0
-packaging==23.0
-pluggy==1.0.0
-pycryptodome==3.21.0
-pytest==7.2.1
-python-dotenv==0.21.0
-soupsieve==2.3.2.post1
-tomli==2.0.1
-pytest-check==2.1.2
-PyYAML~=6.0.1
-jsonschema~=4.19.1
-lxml~=5.3.0
+# Ядро тестирования (обязательно обновить для работы с ast)
+pytest>=8.3.0
+pluggy>=1.5.0
+exceptiongroup>=1.2.0
+
+# Вспомогательные пакеты
+attrs>=23.2.0
+packaging>=24.0
+tomli>=2.0.1; python_version < "3.11"
+
+# Инструменты и отчеты
+pytest-check>=2.3.1
+pytest-json-report>=1.5.0
+tabulate>=0.9.0
+
+# Работа с данными и сетью
+beautifulsoup4>=4.12.0
+lxml>=5.3.0
+PyYAML>=6.0.1
+jsonschema>=4.21.0
 deepdiff>=8.6.1
-pytest-json-report==1.5.0
-tabulate==0.9.0
-paramiko>=4.0.0
-scp>=0.15.0
+python-dotenv>=1.0.0
+pycryptodome>=3.21.0
+paramiko>=3.4.0
