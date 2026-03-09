@@ -5,7 +5,7 @@ import sys
 import time
 
 from utils import constants
-from utils.command import build_analysis_command, build_discovery_command
+from utils.command import build_analysis_command, build_discovery_command, run_command_stream_output
 from utils.common import run_containerless_parametrize, verify_triggered_rules, verify_triggered_yaml_rules
 from utils.manage_maven_credentials import manage_credentials_in_maven_xml
 from utils.report import assert_story_points_from_report_file, get_json_from_report_output_js_file, clearReportDir, \
@@ -14,7 +14,7 @@ from utils.report import assert_story_points_from_report_file, get_json_from_rep
 
 # Polarion TC 373
 def test_skip_report(analysis_data):
-    application_data = analysis_data['jee_example_app']
+    application_data = analysis_data['administracion_efectivo']
     report_path = os.getenv(constants.REPORT_OUTPUT_PATH)
 
     command = build_analysis_command(
@@ -24,9 +24,9 @@ def test_skip_report(analysis_data):
         **{'skip-static-report': ''}
     )
 
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+    output = run_command_stream_output(command)
 
-    assert 'generating static report' not in output
+    assert 'Analysis complete!' in output
 
     assert os.path.exists(report_path + '/static-report/index.html') is False
     assert os.path.exists(report_path + '/output.yaml') is True
@@ -35,7 +35,7 @@ def test_skip_report(analysis_data):
 
 # Polarion TC 374
 def test_custom_rules(analysis_data):
-    application_data = analysis_data['jee_example_app']
+    application_data = analysis_data['administracion_efectivo']
     custom_rule_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'yaml', '01-test-jee.windup.yaml')
 
     command = build_analysis_command(
@@ -45,9 +45,9 @@ def test_custom_rules(analysis_data):
         **{'rules': custom_rule_path}
     )
 
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+    output = run_command_stream_output(command)
 
-    assert 'generating static report' in output
+    assert 'Analysis complete!' in output
     assert_story_points_from_report_file()
 
     report_data = get_json_from_report_output_js_file()
@@ -55,7 +55,7 @@ def test_custom_rules(analysis_data):
 
 # Automates Bug 4784
 def test_description_display_in_report(analysis_data):
-    application_data = analysis_data['jee_example_app']
+    application_data = analysis_data['administracion_efectivo']
 
     command = build_analysis_command(
         application_data['file_name'],
@@ -63,9 +63,9 @@ def test_description_display_in_report(analysis_data):
         ""
     )
 
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+    output = run_command_stream_output(command)
 
-    assert 'generating static report' in output
+    assert 'Analysis complete!' in output
     assert_story_points_from_report_file()
 
     report_data = get_json_from_report_output_js_file()
@@ -79,7 +79,7 @@ def test_description_display_in_report(analysis_data):
 
 @run_containerless_parametrize
 def test_bulk_analysis(analysis_data, additional_args):
-    applications = [analysis_data['administracion_efectivo'], analysis_data['jee_example_app']]
+    applications = [analysis_data['administracion_efectivo'], analysis_data['tackle-testapp-project']]
     clearReportDir()
 
     for application in applications:
@@ -90,9 +90,9 @@ def test_bulk_analysis(analysis_data, additional_args):
             True,
             **additional_args
         )
-        output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+        output = run_command_stream_output(command)
 
-        assert 'generating static report' in output
+        assert 'Analysis complete!' in output
 
     report_data = get_json_from_report_output_js_file(False)
     assert len(report_data) >= 2, "Less than 2 application analysis detected"
@@ -123,8 +123,9 @@ def test_analysis_of_private_repo(analysis_data, additional_args):
         **additional_args
     )
 
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
-    assert 'generating static report' in output
+    output = run_command_stream_output(command)
+
+    assert 'Analysis complete!' in output
 
     report_data = get_json_from_report_output_js_file(False)
     assert len(report_data[0]['depItems']) >= 0, "No dependencies were found"
@@ -135,7 +136,7 @@ def test_analysis_of_private_repo(analysis_data, additional_args):
 
 
 def test_no_container_leftovers(analysis_data):
-    application_data = analysis_data['jee_example_app']
+    application_data = analysis_data['administracion_efectivo']
     command = build_analysis_command(
         application_data['file_name'],
         application_data['sources'],
@@ -211,9 +212,9 @@ def test_custom_rules_disable_default_issue_781_855(analysis_data):
         }
     )
 
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+    output = run_command_stream_output(command)
 
-    assert 'generating static report' in output
+    assert 'Analysis complete!' in output
     assert_story_points_from_report_file()
 
     expected_rule_id_list = [
