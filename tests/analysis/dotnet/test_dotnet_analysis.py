@@ -16,10 +16,11 @@ def test_hello_world_linux_analysis_with_rules(dotnet_analysis_data):
     application_data = dotnet_analysis_data["hello_world"]
     application_path = os.path.join(
         os.getenv(constants.PROJECT_PATH),
-        'data/applications',
+        'data',
+        'applications',
         application_data['file_name']
     )
-    custom_rules_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data/yaml/dotnet/example_rules')
+    custom_rules_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'yaml', 'dotnet', 'example_rules')
 
     with extract_zip_to_temp_dir(application_path) as tempdir:
         command = build_analysis_command(

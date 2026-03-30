@@ -6,7 +6,7 @@ from utils.common import run_containerless_parametrize
 
 @run_containerless_parametrize
 def test_analysis_wrong_target(analysis_data, additional_args):
-    application_data = analysis_data['jee_example_app']
+    application_data = analysis_data['administracion_efectivo']
 
     command = build_analysis_command(
         application_data['file_name'],
@@ -31,7 +31,7 @@ def test_analysis_wrong_target(analysis_data, additional_args):
 # Automates Bug MTA-4951
 @run_containerless_parametrize
 def test_analysis_wrong_custom_rule(analysis_data, additional_args):
-    application_data = analysis_data['jee_example_app']
+    application_data = analysis_data['administracion_efectivo']
 
     command = build_analysis_command(
         application_data['file_name'],

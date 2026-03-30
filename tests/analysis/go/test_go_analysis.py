@@ -1,15 +1,14 @@
 import os
-import subprocess
 
 from utils import constants
-from utils.command import build_analysis_command
+from utils.command import build_analysis_command, run_command_stream_output
 from utils.report import assert_story_points_from_report_file, get_json_from_report_output_js_file
 
 
 # Polarion TC MTA-533, MTA-544
 def test_go_provider_analysis_with_app(golang_analysis_data):
     application_data = golang_analysis_data['golang_app']
-    custom_rules_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data/yaml', 'golang-dep-rules.yaml')
+    custom_rules_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'yaml', 'golang-dep-rules.yaml')
 
     command = build_analysis_command(
         application_data['file_name'],
@@ -20,9 +19,9 @@ def test_go_provider_analysis_with_app(golang_analysis_data):
            "--run-local=false": None}
     )
 
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+    output = run_command_stream_output(command)
 
-    assert 'generating static report' in output
+    assert 'Analysis complete!' in output
     assert_story_points_from_report_file()
 
     report_data = get_json_from_report_output_js_file()
