@@ -8,7 +8,7 @@ import pytest
 
 from utils import constants
 from utils.command import build_analysis_command, run_command_stream_output
-from utils.common import run_containerless_parametrize, verify_triggered_rules, extract_zip_to_temp_dir
+from utils.common import get_project_path, run_containerless_parametrize, verify_triggered_rules
 from utils.manage_maven_credentials import get_default_token
 from utils.report import assert_story_points_from_report_file, get_dict_from_output_yaml_file
 
@@ -49,7 +49,7 @@ def test_standard_analysis(app_name, analysis_data, additional_args):
 # Polarion TC 588
 def test_java_analysis_without_pom(analysis_data):
     application_data = analysis_data['tackle-testapp-public']
-    app_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data/applications', application_data['file_name'])
+    app_path = os.path.join(get_project_path(), 'data', 'applications', application_data['file_name'])
     app_no_pom_path = f"{app_path}-no-pom"
     shutil.rmtree(app_no_pom_path, ignore_errors=True)
     shutil.copytree(app_path, app_no_pom_path)
@@ -77,32 +77,33 @@ def test_gradle_analysis_custom_rule():
     if os.getenv('RUN_LOCAL_MODE') == 'true':
         pytest.skip("skip when running containerless")
 
-    application_path = os.path.join(
-        os.getenv(constants.PROJECT_PATH),
-        'data/applications',
-        'jmh-gradle-example.zip'
-    )
-    custom_rules_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data/yaml/serializable-gradle-rule.yaml')
-
-    with extract_zip_to_temp_dir(application_path) as tempdir:
-        command = build_analysis_command(
-            tempdir,
-            "",
-            "",
-            **{
-                'rules': custom_rules_path,
-                'enable-default-rulesets': 'false',
-                'analyze-known-libraries': None,
-                'run-local': 'false'
-            },
+    custom_rules_path = os.path.join(
+        get_project_path(), 
+        'data', 
+        'yaml',
+        'serializable-gradle-rule.yaml'
         )
 
-        output = run_command_stream_output(command)
+    # Use app name like other analysis tests: resolves to data/applications/gradle8-example-main
+    command = build_analysis_command(
+        'gradle8-example-main',
+        "",
+        "",
+        **{
+            'rules': custom_rules_path,
+            'enable-default-rulesets': 'false',
+            'analyze-known-libraries': None,
+            'run-local': 'false'
+        },
+    )
 
-        assert 'analysis complete' in output.lower(), "Expected 'Analysis complete!' in Kantra output"
-        assert_story_points_from_report_file()
-        report_data = get_dict_from_output_yaml_file()
-        verify_triggered_rules(report_data, ['serializable-test-rule-jmh-gradle'])
+    output = run_command_stream_output(command)
+
+    assert 'analysis complete' in output.lower(), "Expected 'Analysis complete!' in Kantra output"
+    assert_story_points_from_report_file()
+    report_data = get_dict_from_output_yaml_file()
+    verify_triggered_rules(report_data, ['serializable-test-rule-jmh-gradle'])
+
 
 def test_dependency_rule_analysis(analysis_data):
     application_data = analysis_data['tackle-testapp-project']

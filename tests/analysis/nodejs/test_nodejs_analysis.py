@@ -1,8 +1,7 @@
 import os
-import subprocess
 
 from utils import constants
-from utils.command import build_analysis_command
+from utils.command import build_analysis_command, run_command_stream_output
 
 
 # Polarion TC MTA-542
@@ -18,6 +17,6 @@ def test_nodejs_provider_analysis(nodejs_analysis_data):
            'provider': "nodejs"}
     )
 
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+    output = run_command_stream_output(command)
 
-    assert 'Static report created' in output
+    assert 'Analysis complete!' in output

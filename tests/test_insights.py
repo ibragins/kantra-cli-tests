@@ -3,7 +3,7 @@ import subprocess
 import pytest
 
 from utils import constants
-from utils.command import build_analysis_command
+from utils.command import build_analysis_command, run_command_stream_output
 from utils.common import run_containerless_parametrize
 from utils.manage_maven_credentials import manage_credentials_in_maven_xml
 from utils.report import assert_insights_from_report_file, get_json_from_report_output_js_file
@@ -11,7 +11,7 @@ from utils.report import assert_insights_from_report_file, get_json_from_report_
 # Polarion TC 598
 @run_containerless_parametrize
 def test_insights_binary_app(analysis_data, additional_args):
-    application_data = analysis_data['jee_example_app']
+    application_data = analysis_data['administracion_efectivo']
 
     command = build_analysis_command(
         application_data['file_name'],
@@ -20,10 +20,9 @@ def test_insights_binary_app(analysis_data, additional_args):
         **additional_args
     )
 
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE,
-        encoding='utf-8').stdout
+    output = run_command_stream_output(command)
 
-    assert 'generating static report' in output
+    assert 'analysis complete' in output.lower(), "Expected 'Analysis complete!' in Kantra output"
     assert_insights_from_report_file()
 
 # Polarion TC 576, 577, 578, 589, 606
@@ -66,9 +65,8 @@ def test_insights_custom_rules(analysis_data, analysis_mode, additional_args):
             **{'maven-settings': custom_maven_settings},
             **additional_args
         )
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE,
-        encoding='utf-8').stdout
-    assert 'generating static report' in output
+    output = run_command_stream_output(command)
+    assert 'analysis complete' in output.lower(), "Expected 'Analysis complete!' in Kantra output"
 
     report_data = get_json_from_report_output_js_file()
     for rule in report_data['rulesets']:

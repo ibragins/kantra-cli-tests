@@ -1,8 +1,7 @@
 import os
-import subprocess
 
 from utils import constants
-from utils.command import build_analysis_command
+from utils.command import build_analysis_command, run_command_stream_output
 from utils.common import verify_triggered_yaml_rules
 from utils.report import get_dict_from_output_yaml_file
 
@@ -21,9 +20,9 @@ def test_python_analysis_with_rules(python_analysis_data):
            "--run-local=false": None}
     )
 
-    output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
+    output = run_command_stream_output(command)
 
-    assert 'generating static report' in output
+    assert 'Analysis complete!' in output
 
     report_data = get_dict_from_output_yaml_file()
     verify_triggered_yaml_rules(report_data,['python-sample-rule-001', 'python-sample-rule-002'], True)
