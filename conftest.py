@@ -13,9 +13,17 @@ pytest_plugins = [
 def load_env():
     load_dotenv()
 
-def pytest_runtest_setup(item):
-    item.start_time = time.perf_counter()
+_run_started_at: dict[str, float] = {}
+
+
+def pytest_runtest_logstart(nodeid, location):
+    # Unconditionally skipped tests never run pytest_runtest_setup but still
+    # run pytest_runtest_teardown; logstart always runs for each collected item.
+    _run_started_at[nodeid] = time.perf_counter()
+
 
 def pytest_runtest_teardown(item):
-    duration = time.perf_counter() - item.start_time
-    print(f"\nTest {item.name} took {duration:.4f} seconds")
+    started = _run_started_at.pop(item.nodeid, None)
+    if started is not None:
+        duration = time.perf_counter() - started
+        print(f"\nTest {item.name} took {duration:.4f} seconds")

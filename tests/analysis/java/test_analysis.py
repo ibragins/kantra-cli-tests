@@ -3,8 +3,8 @@ import os
 import pytest
 from deepdiff import DeepDiff
 
+import utils.common
 from fixtures.analysis import ci_data
-from utils import constants
 from utils.command import build_analysis_command, run_command_stream_output
 from utils.output import normalize_output
 from utils.report import assert_story_points_from_report_file, get_dict_from_output_yaml_file
@@ -14,7 +14,7 @@ from utils.report import assert_story_points_from_report_file, get_dict_from_out
                          ids=lambda case: f"{case['name']}")
 def test_bvp_issue_analyzer_901(application_data):
     reference_data_path = os.path.join(
-        os.getenv(constants.PROJECT_PATH),
+        utils.common.get_project_path(),
         "data", "ci", "shared_tests", application_data['referencesDir']
     )
 
@@ -33,7 +33,7 @@ def test_bvp_issue_analyzer_901(application_data):
     # Parsing report and reference
     report_data = normalize_output(
         get_dict_from_output_yaml_file(),
-        os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'applications', application_data['filename'])
+        os.path.join(utils.common.get_project_path(), 'data', 'applications', application_data['filename'])
     )
     reference_data = get_dict_from_output_yaml_file(
         filename="output.yaml",
@@ -42,7 +42,7 @@ def test_bvp_issue_analyzer_901(application_data):
 
     reference_data = normalize_output(
         reference_data,
-        os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'applications', application_data['filename'])
+        os.path.join(utils.common.get_project_path(), 'data', 'applications', application_data['filename'])
     )
 
     diff = DeepDiff(report_data, reference_data, ignore_order=True)
