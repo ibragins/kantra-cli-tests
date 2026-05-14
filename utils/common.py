@@ -1,5 +1,6 @@
 import os
 import platform
+import shutil
 import subprocess
 import tempfile
 import zipfile
@@ -20,6 +21,7 @@ __all__ = [
     "extract_rules",
     "verify_triggered_yaml_rules",
     "extract_name_and_violations_from_dictionary",
+    "clear_maven_cache",
 ]
 
 
@@ -228,6 +230,17 @@ def get_report_path():
     if not value:
         raise RuntimeError("REPORT_OUTPUT_PATH is not set")
     return value
+
+
+def clear_maven_cache():
+    """
+    Remove the local Maven directory (``~/.m2`` on Linux and macOS,
+    ``%USERPROFILE%\\.m2`` on Windows). No-op if the directory does not exist.
+    """
+    m2_dir = os.path.join(os.path.expanduser("~"), ".m2")
+    if os.path.isdir(m2_dir):
+        shutil.rmtree(m2_dir)
+
 
 def get_profile_path(config_data):
     command = [get_cli_path(),

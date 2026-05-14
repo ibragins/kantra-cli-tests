@@ -6,6 +6,7 @@ import subprocess
 
 import pytest
 
+import utils.common
 from utils import constants
 from utils.command import build_analysis_command, run_command_stream_output
 from utils.common import get_project_path, run_containerless_parametrize, verify_triggered_rules
@@ -27,7 +28,7 @@ def test_standard_analysis(app_name, analysis_data, additional_args):
             maven_token = get_default_token()
         raw_settings = raw_settings.replace('GITHUB_USER', os.getenv(constants.GIT_USERNAME, 'konveyor-read-only-bot'))
         raw_settings = raw_settings.replace('GITHUB_TOKEN', maven_token)
-        input_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'applications', application_data['file_name'])
+        input_path = os.path.join(utils.common.get_project_path(), 'data', 'applications', application_data['file_name'])
         settings_path = input_path + "_settings.xml"  
         with open(settings_path, 'w') as f:
             f.write(raw_settings)
