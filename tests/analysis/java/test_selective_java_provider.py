@@ -1,11 +1,14 @@
 import os
 
+import pytest
+
 from utils import constants
 from utils.command import build_analysis_command, run_command_stream_output
 from utils.common import verify_triggered_yaml_rules
 from utils.report import assert_story_points_from_report_file, get_dict_from_output_yaml_file
 
 # Polarion TC MTA-536, 543
+@pytest.mark.skip(reason="Covered by koncur tests/tackle-testapp-with-custom-rules")
 def test_java_provider_analysis(analysis_data):
 
     application_data = analysis_data['tackle-testapp-project']

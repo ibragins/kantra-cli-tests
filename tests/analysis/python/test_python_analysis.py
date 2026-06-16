@@ -1,11 +1,14 @@
 import os
 
+import pytest
+
 from utils import constants
 from utils.command import build_analysis_command, run_command_stream_output
 from utils.common import verify_triggered_yaml_rules
 from utils.report import get_dict_from_output_yaml_file
 
 
+@pytest.mark.skip(reason="Covered by koncur tests/python-sample")
 def test_python_analysis_with_rules(python_analysis_data):
     application_data = python_analysis_data["python_app_project"]
 

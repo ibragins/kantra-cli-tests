@@ -9,10 +9,18 @@ from utils.command import build_analysis_command, run_command_stream_output
 from utils.output import normalize_output
 from utils.report import assert_story_points_from_report_file, get_dict_from_output_yaml_file
 
+# Covered by koncur tests/book-server-source and tests/book-server-deps.
+_KONCUR_DUPLICATED_CASES = frozenset({"book-server_source", "book-server_deps"})
+
 
 @pytest.mark.parametrize("application_data", ci_data(),
                          ids=lambda case: f"{case['name']}")
 def test_bvp_issue_analyzer_901(application_data):
+    if application_data["name"] in _KONCUR_DUPLICATED_CASES:
+        pytest.skip(
+            "Covered by koncur tests/book-server-source and tests/book-server-deps"
+        )
+
     reference_data_path = os.path.join(
         utils.common.get_project_path(),
         "data", "ci", "shared_tests", application_data['referencesDir']
