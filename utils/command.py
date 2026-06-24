@@ -2,7 +2,14 @@ import os
 import subprocess
 import sys
 
-from utils.common import get_hub_url, get_cli_path, get_project_path, get_report_path
+from utils.common import (
+    get_cli_path,
+    get_hub_login_url,
+    get_hub_url,
+    get_project_path,
+    get_report_path,
+    obtain_hub_token,
+)
 
 # Use PTY on Unix so the child's stdout is line-buffered and we capture the final analysis message
 _USE_PTY = sys.platform != 'win32'
@@ -316,22 +323,41 @@ def build_asset_generation_command(input_file, chart_dir, output_dir=None, **kwa
     return command
 
 
-def build_central_config_login_command(hub_url, username, password, secure=False):
+def build_central_config_login_command(hub_url, secure=False):
     """
-    Builds a string for executing the "central config login" subcommand
-    Args:
-        hub_url: URL of the hub server.
-        username: username to log in to the hub
-        password: password to log in to the hub
-        secure: Set as false to ignore SSL certificate verification
-
-    Returns: Command to execute with the specified options and arguments.
-
+    Builds a command for executing the "config login" subcommand.
+    The CLI reads a Hub API token from stdin; use run_central_config_login().
     """
     kantra_path = get_cli_path()
     if not secure:
         print("Not secure connection")
-    return [kantra_path, 'config', 'login' , hub_url, username, password] + (['--insecure'] if not secure else [])
+    return [kantra_path, "config", "login", get_hub_login_url(hub_url)] + (
+        ["--insecure"] if not secure else []
+    )
+
+
+def run_central_config_login(hub_url, username, password, secure=False):
+    """Obtain a Hub token and run `kantra config login` non-interactively."""
+    token = obtain_hub_token(hub_url, username, password, secure=secure)
+    command = build_central_config_login_command(hub_url, secure=secure)
+    print(command)
+    env = os.environ.copy()
+    env["HUB_TOKEN"] = token
+    output = subprocess.run(
+        command,
+        shell=False,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    if output.returncode != 0:
+        raise RuntimeError(
+            f"Login failed (exit {output.returncode}): {command}\n{output.stdout}"
+        )
+    return output
 
 
 def build_central_config_sync_command(app_url, profile_path=None, secure=True):

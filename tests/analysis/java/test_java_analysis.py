@@ -67,8 +67,8 @@ def test_java_analysis_without_pom(analysis_data):
         pytest.fail("Expected analysis to fail with 'unable to get build tool' when pom.xml is missing")
     except subprocess.CalledProcessError as e:
         output = (e.args[2] if len(e.args) > 2 else "") or getattr(e, "output", "") or str(e)
-        assert "unable to start Java provider" in output and "unable to get build tool" in output, (
-            f"Expected 'unable to start Java provider' and 'unable to get build tool' in output, got: {output[-2000:]!r}"
+        assert "failed to start providers" in output and "unable to get build tool" in output, (
+            f"Expected 'failed to start providers' and 'unable to get build tool' in output, got: {output[-2000:]!r}"
         )
     finally:
         shutil.rmtree(app_no_pom_path, ignore_errors=True)

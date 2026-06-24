@@ -1,8 +1,8 @@
 import os.path
 
 import pytest
-from utils.command import build_central_config_login_command, build_central_config_sync_command, get_cli_path, \
-    build_analysis_command_ccm
+from utils.command import build_central_config_sync_command, get_cli_path, \
+    build_analysis_command_ccm, run_central_config_login
 from utils.common import get_hub_url, get_hub_username, get_hub_password, get_hub_secure, get_full_application_path, \
     get_project_path, get_profile_path, run_command
 from utils.report import get_json_from_report_output_js_file
@@ -12,14 +12,12 @@ def test_login_hub():
     hub_url = get_hub_url()
     if "localhost" in hub_url:
         pytest.skip("Skipping login test when hub URL contains localhost")
-    command = build_central_config_login_command(
+    output = run_central_config_login(
         hub_url,
         get_hub_username(),
         get_hub_password(),
-        get_hub_secure()
+        get_hub_secure(),
     )
-    print(command)
-    output = run_command(command, shell=False, check=True)
     assert "login successful" in output.stdout.lower(), \
         f"Expected 'login successful' in output, got: {output.stdout}"
 
@@ -35,8 +33,8 @@ def test_sync_hub(central_config_data):
 
     assert output.returncode == 0, \
         f"Command failed with exit code {output.returncode}\nSTDOUT: {output.stdout}\nSTDERR: {output.stderr}"
-    assert "profile bundle downloaded successfully" in output.stdout.lower(), \
-        f"Expected 'profile bundle downloaded successfully' in output, got:\nSTDOUT: {output.stdout}\nSTDERR: {output.stderr}"
+    assert "profile bundle extracted successfully" in output.stdout.lower(), \
+        f"Expected 'profile bundle extracted successfully' in output, got:\nSTDOUT: {output.stdout}\nSTDERR: {output.stderr}"
 
 def test_sync_hub_negative():
     """Negative test: expects command to fail when connecting to invalid localhost hub."""
@@ -77,7 +75,7 @@ def test_analysis(central_config_data):
         profile_path
     )
     output = run_command(command, shell=True, check=False)
-    print(output)
+    # print(output)
     assert 'using profile' in output.stdout.lower()
     report_data = get_json_from_report_output_js_file(False)
     assert report_data, "Report data is empty"

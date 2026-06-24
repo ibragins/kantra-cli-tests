@@ -8,6 +8,44 @@ from bs4 import BeautifulSoup
 from utils import constants
 
 
+def _report_dir(**kwargs):
+    return kwargs.get('report_path', os.getenv(constants.REPORT_OUTPUT_PATH))
+
+
+def _load_apps_from_output_js(report_path):
+    with open(os.path.join(report_path, "static-report", "output.js"), encoding='utf-8') as file:
+        js_report = file.read()
+    return json.loads(js_report.split('window["apps"] = ')[1])
+
+
+def _get_rulesets_from_report(filename="output.yaml", **kwargs):
+    """Load rulesets from output.yaml or, when absent, from static-report/output.js."""
+    report_path = _report_dir(**kwargs)
+    if not report_path:
+        raise FileNotFoundError("REPORT_OUTPUT_PATH is not set")
+
+    yaml_path = os.path.join(report_path, filename)
+    if os.path.isfile(yaml_path):
+        with open(yaml_path, encoding='utf-8') as file:
+            data = yaml.load(file, Loader=yaml.SafeLoader)
+        if isinstance(data, list):
+            return data
+        return data.get('rulesets', [])
+
+    js_path = os.path.join(report_path, "static-report", "output.js")
+    if os.path.isfile(js_path):
+        apps = _load_apps_from_output_js(report_path)
+        if not apps:
+            return []
+        rulesets = apps[0].get('rulesets', [])
+        return rulesets if isinstance(rulesets, list) else []
+
+    raise FileNotFoundError(
+        f"No analysis report found in {report_path} "
+        f"(expected {filename} or static-report/output.js)"
+    )
+
+
 def get_json_from_report_output_js_file(return_first = True, **kwargs):
     """
         Loads and returns a JSON from the output.js file of the report
@@ -22,19 +60,19 @@ def get_json_from_report_output_js_file(return_first = True, **kwargs):
             JSON data
 
         """
-    report_path = os.getenv(constants.REPORT_OUTPUT_PATH)
-    report_path = kwargs.get('report_path', report_path)
+    report_path = _report_dir(**kwargs)
 
-    with open(os.path.join(report_path, "static-report", "output.js"), encoding='utf-8') as file:
-        js_report = file.read()
+    apps = _load_apps_from_output_js(report_path)
     if return_first:
-        return json.loads(js_report.split('window["apps"] = ')[1])[0]
-    else:
-        return json.loads(js_report.split('window["apps"] = ')[1])
+        return apps[0]
+    return apps
 
 def get_dict_from_output_yaml_file(filename = "output.yaml", **kwargs):
     """
-        Loads and returns data from the output.yaml file of the report.
+        Loads and returns rulesets from the analysis report.
+
+        Prefers output.yaml when present (reference fixtures, older CLI output).
+        Falls back to static-report/output.js from newer kantra releases.
 
         Args:
             filename: Which filename should be used. Useful in case of bulk analysis as filename can differ
@@ -43,22 +81,15 @@ def get_dict_from_output_yaml_file(filename = "output.yaml", **kwargs):
                     the function will use the value of the 'REPORT_OUTPUT_PATH' environment variable.
 
         Returns:
-            Parsed YAML data (typically a list of rulesets)
+            Parsed report data (typically a list of rulesets)
 
         """
-    report_path = kwargs.get('report_path', os.getenv(constants.REPORT_OUTPUT_PATH))
-
-    with open(os.path.join(report_path, filename), encoding='utf-8') as file:
-        data = yaml.load(file, Loader=yaml.SafeLoader)
-    return data
+    return _get_rulesets_from_report(filename=filename, **kwargs)
 
 
 def _get_rulesets_from_output_yaml(**kwargs):
-    """Load output.yaml from the report dir and return a list of rulesets."""
-    data = get_dict_from_output_yaml_file(**kwargs)
-    if isinstance(data, list):
-        return data
-    return data.get('rulesets', [])
+    """Load rulesets from the report dir."""
+    return _get_rulesets_from_report(**kwargs)
 
 
 def assert_non_empty_report(report_path):
