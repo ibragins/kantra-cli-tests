@@ -4,20 +4,94 @@
 #
 # Usage: ./cleanup-hub-entities.sh
 #        HUB_BASE_URL=localhost:8080/hub ./cleanup-hub-entities.sh
+# Auth: HUB_USERNAME/HUB_PASSWORD (default admin/admin), or set HUB_TOKEN to skip login.
+# TLS: set HUB_SECURE=true to verify certificates (default: insecure / -k).
 set -e
 
 HUB_URL="${HUB_BASE_URL:-localhost:8080}"
+HUB_USERNAME="${HUB_USERNAME:-admin}"
+HUB_PASSWORD="${HUB_PASSWORD:-admin}"
+HUB_SECURE="${HUB_SECURE:-false}"
+
 if [[ "$HUB_URL" != http* ]]; then
     BASE_URL="http://${HUB_URL}"
 else
     BASE_URL="${HUB_URL}"
 fi
 
-CURL_OPTS=(--silent --show-error --max-time 15)
+CURL_TLS_OPTS=()
+[[ "$(echo "$HUB_SECURE" | tr '[:upper:]' '[:lower:]')" != "true" ]] && CURL_TLS_OPTS+=(-k)
 
-# Discover /hub if root returns no data
-fetch_json() {
-    curl "${CURL_OPTS[@]}" "$1" 2>/dev/null | jq -c 'if type == "array" then . else [] end' 2>/dev/null || echo "[]"
+hub_auth_url() {
+    local base="${1%/}"
+    if [[ "$base" == */hub ]]; then
+        echo "${base}/auth/tokens"
+    elif [[ "$base" == https://* ]]; then
+        echo "${base}/hub/auth/tokens"
+    else
+        echo "${base}/auth/tokens"
+    fi
+}
+
+hub_api_url() {
+    echo "${1%/}/${2#/}"
+}
+
+resolve_hub_api_base() {
+    local base="${1%/}"
+    if [[ "$base" == */hub ]]; then
+        echo "$base"
+        return
+    fi
+
+    local candidate probe
+    for candidate in "$base" "${base}/hub"; do
+        probe=$(curl "${CURL_OPTS[@]}" "${candidate}/targets" 2>/dev/null || true)
+        if echo "$probe" | jq -e 'type == "array"' >/dev/null 2>&1; then
+            if [ "$candidate" != "$base" ]; then
+                echo "Using API base ${candidate} (auto-detected)" >&2
+            fi
+            echo "$candidate"
+            return
+        fi
+    done
+
+    echo "$base"
+}
+
+obtain_hub_token() {
+    if [ -n "${HUB_TOKEN:-}" ]; then
+        echo "Using provided HUB_TOKEN" >&2
+        echo "$HUB_TOKEN"
+        return 0
+    fi
+
+    echo "Authenticating as ${HUB_USERNAME}..." >&2
+    local auth_url basic_auth response token
+    basic_auth=$(printf '%s:%s' "$HUB_USERNAME" "$HUB_PASSWORD" | base64 -w0 2>/dev/null \
+        || printf '%s:%s' "$HUB_USERNAME" "$HUB_PASSWORD" | base64)
+
+    for auth_url in "$(hub_auth_url "$BASE_URL")" "${BASE_URL%/}/hub/auth/tokens" "${BASE_URL%/}/auth/tokens"; do
+        [ -z "$auth_url" ] && continue
+        response=$(curl "${CURL_TLS_OPTS[@]}" -sS --connect-timeout 5 --max-time 15 -X POST \
+            "$auth_url" \
+            -H "Authorization: Basic ${basic_auth}" \
+            -H "Content-Type: application/json" \
+            -d '{}' || true)
+        token=$(echo "$response" | jq -r '.token // empty' 2>/dev/null)
+        if [ -z "$token" ]; then
+            token=$(echo "$response" | awk '/^token:/{print $2}')
+        fi
+        if [ -n "$token" ]; then
+            echo "✓ Authentication successful (${auth_url})" >&2
+            echo "$token"
+            return 0
+        fi
+    done
+
+    echo "✗ Failed to authenticate against Hub" >&2
+    echo "Last response: $response" >&2
+    exit 1
 }
 
 echo "============================================"
@@ -26,13 +100,14 @@ echo "============================================"
 echo "Hub URL: $BASE_URL"
 echo ""
 
-APPS_JSON=$(fetch_json "${BASE_URL}/applications")
-APPS_LEN=$(echo "$APPS_JSON" | jq -r 'length' 2>/dev/null || echo "0")
-[ -z "$APPS_LEN" ] || [ "$APPS_LEN" = "null" ] && APPS_LEN="0"
-if [ "${APPS_LEN:-0}" -eq 0 ] && [[ "$BASE_URL" != */hub ]]; then
-    echo "No data at root, using ${BASE_URL}/hub ..."
-    BASE_URL="${BASE_URL}/hub"
-fi
+HUB_TOKEN=$(obtain_hub_token)
+CURL_OPTS=("${CURL_TLS_OPTS[@]}" --silent --show-error --max-time 15 -H "Authorization: Bearer ${HUB_TOKEN}")
+BASE_URL=$(resolve_hub_api_base "$BASE_URL")
+
+# Discover /hub if root returns no data
+fetch_json() {
+    curl "${CURL_OPTS[@]}" "$1" 2>/dev/null | jq -c 'if type == "array" then . else [] end' 2>/dev/null || echo "[]"
+}
 
 # Delete in reverse dependency order: archetypes -> applications -> analysis profiles
 echo "----------------------------------------"

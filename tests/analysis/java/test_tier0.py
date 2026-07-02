@@ -10,8 +10,17 @@ from utils.manage_maven_credentials import get_default_token
 from utils.report import assert_non_empty_report
 from utils.output import assert_analysis_output_violations, assert_analysis_output_dependencies
 
+# Covered by koncur tests/tackle-testapp-package-filter.
+_KONCUR_DUPLICATED_TIER0 = frozenset({"tackle-testapp-public-cloud-readiness"})
+
+
 @pytest.mark.parametrize('tc_name', json.load(open(os.path.join("data", "java_analysis.json"))))
 def test_analysis(tc_name, java_analysis_data):
+    if tc_name in _KONCUR_DUPLICATED_TIER0:
+        pytest.skip(
+            "Covered by koncur tests/tackle-testapp-package-filter"
+        )
+
     project_path = os.getenv(constants.PROJECT_PATH)
     output_root_path = os.getenv(constants.REPORT_OUTPUT_PATH, "./output")
     tc = java_analysis_data[tc_name]

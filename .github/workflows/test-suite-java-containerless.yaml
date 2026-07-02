@@ -32,14 +32,17 @@ jobs:
           docker pull ${{ inputs.image }}:${{ inputs.tag }}
           docker create --name kantra-download ${{ inputs.image }}:${{ inputs.tag }}
           docker cp kantra-download:/usr/local/bin/kantra $KANTRA_DIR/kantra
+          docker cp kantra-download:/usr/local/bin/java-external-provider $KANTRA_DIR/java-external-provider
           docker cp kantra-download:/usr/local/bin/windows-kantra $KANTRA_DIR/windows-kantra.exe
           docker cp kantra-download:/usr/local/bin/darwin-kantra $KANTRA_DIR/darwin-kantra
+          docker cp kantra-download:/usr/local/bin/darwin-java-external-provider $KANTRA_DIR/darwin-java-external-provider
           docker cp kantra-download:/jdtls $KANTRA_DIR/jdtls
           docker cp kantra-download:/bin/fernflower.jar $KANTRA_DIR/fernflower.jar
           docker cp kantra-download:/usr/local/static-report $KANTRA_DIR/static-report
           docker cp kantra-download:/opt/rulesets $KANTRA_DIR/rulesets
           docker cp kantra-download:/usr/local/etc/maven.default.index $KANTRA_DIR/maven.default.index
           docker cp kantra-download:/usr/local/etc/maven-index.txt $KANTRA_DIR/maven-index.txt
+          chmod +x $KANTRA_DIR/kantra $KANTRA_DIR/java-external-provider $KANTRA_DIR/darwin-kantra $KANTRA_DIR/darwin-java-external-provider
           ls -l $KANTRA_DIR
       - uses: actions/upload-artifact@v4
         with:
@@ -95,14 +98,17 @@ jobs:
           docker pull ${{ inputs.image }}:${{ inputs.tag }}
           docker create --name kantra-download ${{ inputs.image }}:${{ inputs.tag }}
           docker cp kantra-download:/usr/local/bin/kantra $KANTRA_DIR/kantra
+          docker cp kantra-download:/usr/local/bin/java-external-provider $KANTRA_DIR/java-external-provider
           docker cp kantra-download:/usr/local/bin/windows-kantra $KANTRA_DIR/windows-kantra.exe
           docker cp kantra-download:/usr/local/bin/darwin-kantra $KANTRA_DIR/darwin-kantra
+          docker cp kantra-download:/usr/local/bin/darwin-java-external-provider $KANTRA_DIR/darwin-java-external-provider
           docker cp kantra-download:/jdtls $KANTRA_DIR/jdtls
           docker cp kantra-download:/bin/fernflower.jar $KANTRA_DIR/fernflower.jar
           docker cp kantra-download:/usr/local/static-report $KANTRA_DIR/static-report
           docker cp kantra-download:/opt/rulesets $KANTRA_DIR/rulesets
           docker cp kantra-download:/usr/local/etc/maven.default.index $KANTRA_DIR/maven.default.index
           docker cp kantra-download:/usr/local/etc/maven-index.txt $KANTRA_DIR/maven-index.txt
+          chmod +x $KANTRA_DIR/kantra $KANTRA_DIR/java-external-provider $KANTRA_DIR/darwin-kantra $KANTRA_DIR/darwin-java-external-provider
           ls -l $KANTRA_DIR
       - uses: actions/upload-artifact@v4
         with:

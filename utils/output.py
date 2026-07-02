@@ -77,10 +77,10 @@ def assert_analysis_output_dependencies(expected_output_dir, output_dir, input_r
 
 def get_dict_from_output_file(filename, dir=None, **kwargs):
     """
-        Loads and returns a YAML from analysis output Violation file output.yaml, TODO dir cleaner
+        Loads and returns analysis output (rulesets from output.yaml or output.js).
 
         Returns:
-            dict (from YAML file data)
+            dict (from YAML file data or rulesets list from output.js)
 
         """
     report_path = os.getenv('REPORT_OUTPUT_PATH')
@@ -89,8 +89,17 @@ def get_dict_from_output_file(filename, dir=None, **kwargs):
         report_path = dir
     output_path = os.path.join(report_path, filename)
 
-    with open(output_path, encoding='utf-8') as file:
-        return yaml.safe_load(file), output_path
+    if os.path.isfile(output_path):
+        with open(output_path, encoding='utf-8') as file:
+            return yaml.safe_load(file), output_path
+
+    if filename == "output.yaml":
+        from utils.report import _get_rulesets_from_report
+        js_path = os.path.join(report_path, "static-report", "output.js")
+        if os.path.isfile(js_path):
+            return _get_rulesets_from_report(report_path=report_path), js_path
+
+    raise FileNotFoundError(output_path)
 
 
 def get_files_diff(a, b):

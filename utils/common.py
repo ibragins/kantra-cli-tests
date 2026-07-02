@@ -1,8 +1,13 @@
+import base64
+import json
 import os
 import platform
 import shutil
+import ssl
 import subprocess
 import tempfile
+import urllib.error
+import urllib.request
 import zipfile
 from contextlib import contextmanager
 
@@ -198,11 +203,88 @@ def get_hub_url():
         value = "http://localhost:8080/hub"
     return value
 
+def get_hub_login_url(hub_url=None):
+    """Return hub URL suitable for `kantra config login`."""
+    url = (hub_url or get_hub_url()).rstrip("/")
+    if url.endswith("/hub"):
+        return url[:-4]
+    return url
+
+def _hub_auth_urls(hub_url):
+    url = hub_url.rstrip("/")
+    if url.endswith("/hub"):
+        return [f"{url}/auth/tokens"]
+    if url.startswith("https://"):
+        return [f"{url}/hub/auth/tokens", f"{url}/auth/tokens"]
+    return [f"{url}/auth/tokens", f"{url}/hub/auth/tokens"]
+
+def obtain_hub_token(hub_url=None, username=None, password=None, secure=None):
+    """Obtain a Hub API token using basic auth or HUB_TOKEN env var."""
+    token = os.getenv("HUB_TOKEN")
+    if token:
+        return token
+
+    hub_url = hub_url or get_hub_url()
+    username = username if username is not None else get_hub_username()
+    password = password if password is not None else get_hub_password()
+    secure = get_hub_secure() if secure is None else secure
+
+    basic = base64.b64encode(f"{username}:{password}".encode()).decode()
+    context = ssl.create_default_context()
+    if not secure:
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+
+    last_error = None
+    last_body = ""
+    for auth_url in _hub_auth_urls(hub_url):
+        request = urllib.request.Request(
+            auth_url,
+            data=b"{}",
+            headers={
+                "Authorization": f"Basic {basic}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, context=context, timeout=15) as response:
+                body = response.read().decode()
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            last_body = exc.read().decode(errors="replace")
+            continue
+        except urllib.error.URLError as exc:
+            last_error = exc
+            continue
+
+        try:
+            parsed = json.loads(body)
+            token = parsed.get("token")
+            if token:
+                return token
+        except json.JSONDecodeError:
+            pass
+
+        for line in body.splitlines():
+            if line.startswith("token:"):
+                return line.split(":", 1)[1].strip()
+
+        last_body = body
+
+    if isinstance(last_error, urllib.error.HTTPError):
+        raise RuntimeError(
+            f"Failed to authenticate against Hub (HTTP {last_error.code}): {last_body}"
+        ) from last_error
+    if last_error is not None:
+        raise RuntimeError(f"Failed to authenticate against Hub: {last_error}") from last_error
+    raise RuntimeError(f"Failed to obtain hub token: {last_body}")
+
 def get_hub_username():
-    return os.getenv("HUB_USERNAME")
+    return os.getenv("HUB_USERNAME", "admin")
 
 def get_hub_password():
-    return os.getenv("HUB_PASSWORD")
+    return os.getenv("HUB_PASSWORD", "admin")
 
 def get_hub_secure():
     is_secure_raw = os.getenv("HUB_SECURE", "false")

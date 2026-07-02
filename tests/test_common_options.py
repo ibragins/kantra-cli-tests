@@ -7,7 +7,7 @@ from utils import constants
 # Polarion TC MTA-372
 def test_list_targets():
     kantra_path = os.getenv(constants.KANTRA_CLI_PATH)
-    command = kantra_path + ' analyze --list-targets'
+    command = kantra_path + ' rules list-targets'
 
     output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
 
@@ -18,7 +18,7 @@ def test_list_targets():
 # Polarion TC MTA-472
 def test_list_targets_duplicates():
     kantra_path = os.getenv(constants.KANTRA_CLI_PATH)
-    command = kantra_path + ' analyze --list-targets'
+    command = kantra_path + ' rules list-targets'
 
     output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
 
@@ -29,7 +29,7 @@ def test_list_targets_duplicates():
 # Polarion TC MTA-372
 def test_list_sources():
     kantra_path = os.getenv(constants.KANTRA_CLI_PATH)
-    command = kantra_path + ' analyze --list-sources'
+    command = kantra_path + ' rules list-sources'
 
     output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
 
@@ -40,7 +40,7 @@ def test_list_sources():
 # Polarion TC MTA-488
 def test_list_sources_duplicates():
     kantra_path = os.getenv(constants.KANTRA_CLI_PATH)
-    command = kantra_path + ' analyze --list-sources'
+    command = kantra_path + ' rules list-sources'
 
     output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
 
@@ -51,9 +51,9 @@ def test_list_sources_duplicates():
 # Polarion TC MTA-596
 def test_list_providers():
     kantra_path = os.getenv(constants.KANTRA_CLI_PATH)
-    command = kantra_path + ' analyze --list-providers'
+    command = kantra_path + ' provider list'
 
     output = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, encoding='utf-8').stdout
 
-    for i in ['java', 'python', 'go', 'dotnet', 'nodejs']:
+    for i in ['java', 'python', 'go', 'csharp', 'nodejs']:
         assert i in output, f"Provider '{i}' not found in output."

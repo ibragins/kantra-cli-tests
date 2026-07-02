@@ -1,14 +1,14 @@
 import os
 
-from utils import constants
 from utils.command import build_analysis_command, run_command_stream_output
+from utils.common import get_project_path, verify_triggered_rules
 from utils.report import assert_story_points_from_report_file, get_json_from_report_output_js_file
 
 
 # Polarion TC MTA-533, MTA-544
 def test_go_provider_analysis_with_app(golang_analysis_data):
     application_data = golang_analysis_data['golang_app']
-    custom_rules_path = os.path.join(os.getenv(constants.PROJECT_PATH), 'data', 'yaml', 'golang-dep-rules.yaml')
+    custom_rules_path = os.path.join(get_project_path(), 'data', 'yaml', 'golang-dep-rules.yaml')
 
     command = build_analysis_command(
         application_data['file_name'],
@@ -16,7 +16,8 @@ def test_go_provider_analysis_with_app(golang_analysis_data):
         application_data['targets'],
         **{'provider': "go",
             'rules': custom_rules_path,
-           "--run-local=false": None}
+           # "--run-local=false": None
+           }
     )
 
     output = run_command_stream_output(command)
@@ -25,11 +26,5 @@ def test_go_provider_analysis_with_app(golang_analysis_data):
     assert_story_points_from_report_file()
 
     report_data = get_json_from_report_output_js_file()
-
-    ruleset = next((item for item in report_data['rulesets'] if item.get('description') == 'temp ruleset'), None)
-
-    assert ruleset is not None, "Ruleset property not found in output"
-    assert len(ruleset.get('skipped', [])) == 0, "Custom Rule was skipped"
-    assert 'violations' in ruleset, "Custom rules didn't trigger any violation"
-    assert 'file-001' in ruleset['violations'], "file-001 triggered no violations"
+    verify_triggered_rules(report_data, ['file-001'], expected_unmatched_rules=True)
 

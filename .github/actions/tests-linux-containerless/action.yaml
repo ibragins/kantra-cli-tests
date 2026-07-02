@@ -38,7 +38,7 @@ runs:
   - name: Configure Test Environment
     shell: bash
     run: |
-      chmod +x /home/runner/.kantra/kantra
+      chmod +x /home/runner/.kantra/kantra /home/runner/.kantra/java-external-provider
       ln -s /home/runner/.kantra /home/runner/.config/.kantra
       mkdir ${{ github.workspace }}/report
     working-directory: ${{ github.workspace }}
